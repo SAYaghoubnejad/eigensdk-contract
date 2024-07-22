@@ -20,6 +20,10 @@ describe("SimpleEigenContract", () => {
     let user2: SignerWithAddress;
     let setter: SignerWithAddress;
 
+    const socket1: string = "http://localhost:3000";
+    const socket2: string = "http://localhost:3001";
+    const socket3: string = "http://localhost:3002";
+
     function hashFunction(input: string): string {
         return ethers.keccak256(Buffer.from(input));
     }
@@ -65,7 +69,7 @@ describe("SimpleEigenContract", () => {
         });
 
         it("should add an operator", async () => {
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), 1000, mockG1Point, mockG2Point);
+            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, mockG1Point, mockG2Point);
             
             const operatorInfo = await simpleEigenContract.operatorInfos(1);
             expect(operatorInfo.opAddress).to.equal(await user1.getAddress());
@@ -75,13 +79,13 @@ describe("SimpleEigenContract", () => {
         });
 
         it("should not allow adding the same operator twice", async () => {
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), 1000, mockG1Point, mockG2Point);
-            await expect(simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), 2000, mockG1Point, mockG2Point))
+            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, mockG1Point, mockG2Point);
+            await expect(simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 2000, mockG1Point, mockG2Point))
                 .to.be.revertedWithCustomError(simpleEigenContract, "OperatorAlreadyAdded");
         });
 
         it("should delete an operator", async () => {
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), 1000, mockG1Point, mockG2Point);
+            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, mockG1Point, mockG2Point);
             await simpleEigenContract.connect(dao).deleteOperatorDAO(await user1.getAddress());
             
             const operatorInfo = await simpleEigenContract.operatorInfos(1);
@@ -94,21 +98,22 @@ describe("SimpleEigenContract", () => {
         });
 
         it("should update an operator", async () => {
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), 1000, mockG1Point, mockG2Point);
+            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, mockG1Point, mockG2Point);
             
             const newKeyPair = KeyPair.fromString("04");
             const newG1Point: BN254.G1Point = g1PointToArgs(newKeyPair.pubG1);
             const newG2Point: BN254.G2Point = g2PointToArgs(newKeyPair.pubG2);
-            await simpleEigenContract.connect(dao).updateOperatorDAO(await user1.getAddress(), 2000, newG1Point, newG2Point);
+            await simpleEigenContract.connect(dao).updateOperatorDAO(await user1.getAddress(), socket2, 2000, newG1Point, newG2Point);
             
             const operatorInfo = await simpleEigenContract.operatorInfos(1);
             expect(operatorInfo.stakedAmount).to.equal(2000);
             expect(operatorInfo.pubG1.X).to.equal(newG1Point.X);
             expect(operatorInfo.pubG1.Y).to.equal(newG1Point.Y);
+            expect(operatorInfo.socket).to.equal(socket2);
         });
 
         it("should not allow updating a non-existent operator", async () => {
-            await expect(simpleEigenContract.connect(dao).updateOperatorDAO(await user1.getAddress(), 2000, mockG1Point, mockG2Point))
+            await expect(simpleEigenContract.connect(dao).updateOperatorDAO(await user1.getAddress(), socket1, 2000, mockG1Point, mockG2Point))
                 .to.be.revertedWithCustomError(simpleEigenContract, "OperatorNotExisted");
         });
     });
@@ -127,8 +132,8 @@ describe("SimpleEigenContract", () => {
             const encodedPair2G2: BN254.G2Point = g2PointToArgs(keyPair2.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), 1000, encodedPair2G1, encodedPair2G2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
             
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -164,8 +169,8 @@ describe("SimpleEigenContract", () => {
             const encodedPair2G2: BN254.G2Point = g2PointToArgs(keyPair2.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), 1000, encodedPair2G1, encodedPair2G2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
             
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const invalidSignature: Signature = sign1.add(sign1);
@@ -201,9 +206,9 @@ describe("SimpleEigenContract", () => {
             const encodedPair3G2: BN254.G2Point = g2PointToArgs(keyPair3.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), 1000, encodedPair2G1, encodedPair2G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await admin.getAddress(), 1000, encodedPair3G1, encodedPair3G2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(await admin.getAddress(), socket3, 1000, encodedPair3G1, encodedPair3G2);
             
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -238,7 +243,7 @@ describe("SimpleEigenContract", () => {
         });
 
         it("should only allow DAO to add operators", async () => {
-            await expect(simpleEigenContract.connect(user1).addOperatorDAO(await user2.getAddress(), 1000, mockG1Point, mockG2Point))
+            await expect(simpleEigenContract.connect(user1).addOperatorDAO(await user2.getAddress(), socket1, 1000, mockG1Point, mockG2Point))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
         });
 
@@ -248,7 +253,7 @@ describe("SimpleEigenContract", () => {
         });
 
         it("should only allow DAO to update operators", async () => {
-            await expect(simpleEigenContract.connect(user1).updateOperatorDAO(await user1.getAddress(), 2000, mockG1Point, mockG2Point))
+            await expect(simpleEigenContract.connect(user1).updateOperatorDAO(await user1.getAddress(), socket1, 2000, mockG1Point, mockG2Point))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
         });
     });

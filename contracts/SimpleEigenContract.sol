@@ -19,10 +19,11 @@ contract SimpleEigenContract is AccessControlUpgradeable {
 
     // Gas cost for the pairing equality check
     uint256 internal constant PAIRING_EQUALITY_CHECK_GAS = 120000;
-    uint256 public signatureValidityPeriod; 
+    uint256 public signatureValidityPeriod;
 
     struct Operator {
         address opAddress;
+        string socket;
         uint256 stakedAmount;
         BN254.G1Point pubG1;
         BN254.G2Point pubG2;
@@ -66,11 +67,18 @@ contract SimpleEigenContract is AccessControlUpgradeable {
 
     /// @notice Add a new operator by DAO
     /// @param _opAddress Address of the operator
+    /// @param _socket Socket of the operator
     /// @param _stakedAmount Staked amount by the operator
     /// @param _pubG1 Public G1 point of the operator
     /// @param _pubG2 Public G2 point of the operator
-    function addOperatorDAO(address _opAddress, uint256 _stakedAmount, BN254.G1Point memory _pubG1, BN254.G2Point memory _pubG2) public onlyRole(DAO_ROLE) {
-        _addOperator(_opAddress, _stakedAmount, _pubG1, _pubG2);
+    function addOperatorDAO(
+        address _opAddress,
+        string memory _socket,
+        uint256 _stakedAmount,
+        BN254.G1Point memory _pubG1,
+        BN254.G2Point memory _pubG2
+    ) public onlyRole(DAO_ROLE) {
+        _addOperator(_opAddress, _socket, _stakedAmount, _pubG1, _pubG2);
     }
 
     /// @notice Delete an existing operator by DAO
@@ -81,15 +89,23 @@ contract SimpleEigenContract is AccessControlUpgradeable {
 
     /// @notice Update an existing operator by DAO
     /// @param opAddress Address of the operator to be updated
+    /// @param _socket Socket of the operator
     /// @param _stakedAmount New staked amount by the operator
     /// @param _pubG1 New public G1 point of the operator
     /// @param _pubG2 New public G2 point of the operator
-    function updateOperatorDAO(address opAddress, uint256 _stakedAmount, BN254.G1Point memory _pubG1, BN254.G2Point memory _pubG2) public onlyRole(DAO_ROLE) {
-        _updateOperator(opAddress, _stakedAmount, _pubG1, _pubG2);
+    function updateOperatorDAO(
+        address opAddress,
+        string memory _socket,
+        uint256 _stakedAmount,
+        BN254.G1Point memory _pubG1,
+        BN254.G2Point memory _pubG2
+    ) public onlyRole(DAO_ROLE) {
+        _updateOperator(opAddress, _socket, _stakedAmount, _pubG1, _pubG2);
     }
 
     /// @notice Add a new operator uisng Signature
     /// @param _opAddress Address of the operator
+    /// @param _socket Socket of the operator
     /// @param _stakedAmount Staked amount by the operator
     /// @param _pubG1 Public G1 point of the operator
     /// @param _pubG2 Public G2 point of the operator
@@ -98,25 +114,26 @@ contract SimpleEigenContract is AccessControlUpgradeable {
     /// @param _sigTimestamp Timestamp of the signature
     /// @param _nonSignerIndices Indices of non-signers
     function addOperatorSig(
-        address _opAddress, 
-        uint256 _stakedAmount, 
-        BN254.G1Point memory _pubG1, 
+        address _opAddress,
+        string memory _socket,
+        uint256 _stakedAmount,
+        BN254.G1Point memory _pubG1,
         BN254.G2Point memory _pubG2,
         BN254.G2Point memory _apkG2,
         BN254.G1Point memory _sigma,
         uint256 _sigTimestamp,
         uint32[] memory _nonSignerIndices
     ) public {
-        if(_sigTimestamp + signatureValidityPeriod > block.timestamp){
+        if (_sigTimestamp + signatureValidityPeriod > block.timestamp) {
             revert SignatureExpired();
         }
-        bytes32 _hash = keccak256(abi.encodePacked(Action.Add, _opAddress, _stakedAmount, _pubG1.X, _pubG1.Y, _pubG2.X, _pubG2.Y, _sigTimestamp));
+        bytes32 _hash = keccak256(abi.encodePacked(Action.Add, _opAddress, _socket, _stakedAmount, _pubG1.X, _pubG1.Y, _pubG2.X, _pubG2.Y, _sigTimestamp));
         bool siganatureIsValid;
         (, siganatureIsValid) = verifySignature(_hash, _apkG2, _sigma, _nonSignerIndices);
-        if(siganatureIsValid == false){
+        if (siganatureIsValid == false) {
             revert InvalidSignature();
         }
-        _addOperator(_opAddress, _stakedAmount, _pubG1, _pubG2);
+        _addOperator(_opAddress, _socket, _stakedAmount, _pubG1, _pubG2);
     }
 
     /// @notice Delete an existing operator uisng Signature
@@ -132,13 +149,13 @@ contract SimpleEigenContract is AccessControlUpgradeable {
         uint256 _sigTimestamp,
         uint32[] memory _nonSignerIndices
     ) public {
-        if(_sigTimestamp + signatureValidityPeriod > block.timestamp){
+        if (_sigTimestamp + signatureValidityPeriod > block.timestamp) {
             revert SignatureExpired();
         }
         bytes32 _hash = keccak256(abi.encodePacked(Action.Delete, _opAddress, _sigTimestamp));
         bool siganatureIsValid;
         (, siganatureIsValid) = verifySignature(_hash, _apkG2, _sigma, _nonSignerIndices);
-        if(siganatureIsValid == false){
+        if (siganatureIsValid == false) {
             revert InvalidSignature();
         }
         _deleteOperator(_opAddress);
@@ -146,6 +163,7 @@ contract SimpleEigenContract is AccessControlUpgradeable {
 
     /// @notice Update an existing operator uisng Signature
     /// @param _opAddress Address of the operator to be updated
+    /// @param _socket Socket of the operator
     /// @param _stakedAmount New staked amount by the operator
     /// @param _pubG1 New public G1 point of the operator
     /// @param _pubG2 New public G2 point of the operator
@@ -154,25 +172,26 @@ contract SimpleEigenContract is AccessControlUpgradeable {
     /// @param _sigTimestamp Timestamp of the signature
     /// @param _nonSignerIndices Indices of non-signers
     function updateOperatorSig(
-        address _opAddress, 
-        uint256 _stakedAmount, 
-        BN254.G1Point memory _pubG1, 
+        address _opAddress,
+        string memory _socket,
+        uint256 _stakedAmount,
+        BN254.G1Point memory _pubG1,
         BN254.G2Point memory _pubG2,
         BN254.G2Point memory _apkG2,
         BN254.G1Point memory _sigma,
         uint256 _sigTimestamp,
         uint32[] memory _nonSignerIndices
     ) public {
-        if(_sigTimestamp + signatureValidityPeriod > block.timestamp){
+        if (_sigTimestamp + signatureValidityPeriod > block.timestamp) {
             revert SignatureExpired();
         }
-        bytes32 _hash = keccak256(abi.encodePacked(Action.Update, _opAddress, _stakedAmount, _pubG1.X, _pubG1.Y, _pubG2.X, _pubG2.Y, _sigTimestamp));
+        bytes32 _hash = keccak256(abi.encodePacked(Action.Update, _opAddress, _socket, _stakedAmount, _pubG1.X, _pubG1.Y, _pubG2.X, _pubG2.Y, _sigTimestamp));
         bool siganatureIsValid;
         (, siganatureIsValid) = verifySignature(_hash, _apkG2, _sigma, _nonSignerIndices);
-        if(siganatureIsValid == false){
+        if (siganatureIsValid == false) {
             revert InvalidSignature();
         }
-        _updateOperator(_opAddress, _stakedAmount, _pubG1, _pubG2);
+        _updateOperator(_opAddress, _socket, _stakedAmount, _pubG1, _pubG2);
     }
 
     /// @notice Verify a signature
@@ -233,7 +252,7 @@ contract SimpleEigenContract is AccessControlUpgradeable {
 
     /// @notice Update signature vlidity period
     /// @param _signatureValidityPeriod New signature vlidity period
-    function setValidityPeriod(uint256 _signatureValidityPeriod) public onlyRole(SETTER_ROLE){
+    function setValidityPeriod(uint256 _signatureValidityPeriod) public onlyRole(SETTER_ROLE) {
         signatureValidityPeriod = _signatureValidityPeriod;
         emit SignatureValidityPeriodUpdated(_signatureValidityPeriod);
     }
@@ -244,15 +263,16 @@ contract SimpleEigenContract is AccessControlUpgradeable {
 
     /// @notice Add a new operator
     /// @param _opAddress Address of the operator
+    /// @param _socket Socket of the operator
     /// @param _stakedAmount Staked amount by the operator
     /// @param _pubG1 Public G1 point of the operator
     /// @param _pubG2 Public G2 point of the operator
-    function _addOperator(address _opAddress, uint256 _stakedAmount, BN254.G1Point memory _pubG1, BN254.G2Point memory _pubG2) internal {
+    function _addOperator(address _opAddress, string memory _socket, uint256 _stakedAmount, BN254.G1Point memory _pubG1, BN254.G2Point memory _pubG2) internal {
         if (address2Index[_opAddress] != 0) {
             revert OperatorAlreadyAdded();
         }
         lastIndex = lastIndex + 1;
-        operatorInfos[lastIndex] = Operator(_opAddress, _stakedAmount, _pubG1, _pubG2);
+        operatorInfos[lastIndex] = Operator(_opAddress, _socket, _stakedAmount, _pubG1, _pubG2);
         address2Index[_opAddress] = lastIndex;
         aggregatedG1 = aggregatedG1.plus(_pubG1);
         emit OperatorAdded(lastIndex, _opAddress, _stakedAmount, _pubG1, _pubG2);
@@ -273,16 +293,18 @@ contract SimpleEigenContract is AccessControlUpgradeable {
 
     /// @notice Update an existing operator
     /// @param _opAddress Address of the operator to be updated
+    /// @param _socket Socket of the operator
     /// @param _stakedAmount New staked amount by the operator
     /// @param _pubG1 New public G1 point of the operator
     /// @param _pubG2 New public G2 point of the operator
-    function _updateOperator(address _opAddress, uint256 _stakedAmount, BN254.G1Point memory _pubG1, BN254.G2Point memory _pubG2) internal {
+    function _updateOperator(address _opAddress, string memory _socket, uint256 _stakedAmount, BN254.G1Point memory _pubG1, BN254.G2Point memory _pubG2) internal {
         uint32 index = address2Index[_opAddress];
         if (index == 0) {
             revert OperatorNotExisted();
         }
         aggregatedG1 = aggregatedG1.plus(operatorInfos[index].pubG1.negate());
         operatorInfos[index].stakedAmount = _stakedAmount;
+        operatorInfos[index].socket = _socket;
         operatorInfos[index].pubG1 = _pubG1;
         operatorInfos[index].pubG2 = _pubG2;
         aggregatedG1 = aggregatedG1.plus(_pubG1);
