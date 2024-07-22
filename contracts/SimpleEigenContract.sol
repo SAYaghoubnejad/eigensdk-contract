@@ -7,11 +7,19 @@ import {BN254} from "./libraries/BN254.sol";
 contract SimpleEigenContract is AccessControlUpgradeable {
     using BN254 for BN254.G1Point;
 
+    enum Action {
+        Add,  // 0
+        Delete,   // 1
+        Update // 2
+    }
+
     // Roles
     bytes32 public constant DAO_ROLE = keccak256("DAO_ROLE");
+    bytes32 public constant SETTER_ROLE = keccak256("SETTER_ROLE");
 
     // Gas cost for the pairing equality check
     uint256 internal constant PAIRING_EQUALITY_CHECK_GAS = 120000;
+    uint256 public signatureValidityPeriod; 
 
     struct Operator {
         address opAddress;
@@ -28,70 +36,143 @@ contract SimpleEigenContract is AccessControlUpgradeable {
 
     BN254.G1Point public aggregatedG1;
 
+    /*******************************************************************************
+                                EVENTS AND ERRORS
+    *******************************************************************************/
+
     // Events
     event OperatorAdded(uint32 indexed index, address indexed opAddress, uint256 stakedAmount, BN254.G1Point pubG1, BN254.G2Point pubG2);
     event OperatorDeleted(uint32 indexed index, address indexed opAddress);
-    event OperatorUpdated(uint32 indexed index, uint256 stakedAmount, BN254.G1Point pubG1, BN254.G2Point pubG2);
+    event OperatorUpdated(uint32 indexed index, address indexed opAddress, uint256 stakedAmount, BN254.G1Point pubG1, BN254.G2Point pubG2);
+    event SignatureValidityPeriodUpdated(uint256 validityPeriod);
 
     // Errors
     error OperatorAlreadyAdded();
     error OperatorNotExisted();
+    error InvalidSignature();
+    error SignatureExpired();
+
+    /*******************************************************************************
+                                PUBLIC FUNCTIONS
+    *******************************************************************************/
 
     /// @notice Initialize the contract
     /// @param _admin Address of the admin, can set rakeback token and rakeback tiers
     function initialize(address _admin) public initializer {
         aggregatedG1 = BN254.G1Point(uint256(0), uint256(0));
+        signatureValidityPeriod = 5 minutes;
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
     }
 
-    /// @notice Add a new operator
+    /// @notice Add a new operator by DAO
     /// @param _opAddress Address of the operator
     /// @param _stakedAmount Staked amount by the operator
     /// @param _pubG1 Public G1 point of the operator
     /// @param _pubG2 Public G2 point of the operator
-    function addOperator(address _opAddress, uint256 _stakedAmount, BN254.G1Point memory _pubG1, BN254.G2Point memory _pubG2) public onlyRole(DAO_ROLE) {
-        if (address2Index[_opAddress] != 0) {
-            revert OperatorAlreadyAdded();
-        }
-        lastIndex = lastIndex + 1;
-        operatorInfos[lastIndex] = Operator(_opAddress, _stakedAmount, _pubG1, _pubG2);
-        address2Index[_opAddress] = lastIndex;
-
-        aggregatedG1 = aggregatedG1.plus(_pubG1);
-
-        emit OperatorAdded(lastIndex, _opAddress, _stakedAmount, _pubG1, _pubG2);
+    function addOperatorDAO(address _opAddress, uint256 _stakedAmount, BN254.G1Point memory _pubG1, BN254.G2Point memory _pubG2) public onlyRole(DAO_ROLE) {
+        _addOperator(_opAddress, _stakedAmount, _pubG1, _pubG2);
     }
 
-    /// @notice Delete an existing operator
-    /// @param index Index of the operator to be deleted
-    function deleteOperator(uint32 index) public onlyRole(DAO_ROLE) {
-        aggregatedG1 = aggregatedG1.plus(operatorInfos[index].pubG1.negate());
-        address opAddress = operatorInfos[index].opAddress;
-        delete address2Index[opAddress];
-        delete operatorInfos[index];
-        emit OperatorDeleted(index, opAddress);
+    /// @notice Delete an existing operator by DAO
+    /// @param opAddress Address of the operator to be deleted
+    function deleteOperatorDAO(address opAddress) public onlyRole(DAO_ROLE) {
+        _deleteOperator(opAddress);
     }
 
-    /// @notice Update an existing operator
+    /// @notice Update an existing operator by DAO
     /// @param opAddress Address of the operator to be updated
     /// @param _stakedAmount New staked amount by the operator
     /// @param _pubG1 New public G1 point of the operator
     /// @param _pubG2 New public G2 point of the operator
-    function updateOperator(address opAddress, uint256 _stakedAmount, BN254.G1Point memory _pubG1, BN254.G2Point memory _pubG2) public onlyRole(DAO_ROLE) {
-        uint32 index = address2Index[opAddress];
-        if (index == 0) {
-            revert OperatorNotExisted();
+    function updateOperatorDAO(address opAddress, uint256 _stakedAmount, BN254.G1Point memory _pubG1, BN254.G2Point memory _pubG2) public onlyRole(DAO_ROLE) {
+        _updateOperator(opAddress, _stakedAmount, _pubG1, _pubG2);
+    }
+
+    /// @notice Add a new operator uisng Signature
+    /// @param _opAddress Address of the operator
+    /// @param _stakedAmount Staked amount by the operator
+    /// @param _pubG1 Public G1 point of the operator
+    /// @param _pubG2 Public G2 point of the operator
+    /// @param _apkG2 Aggregate G2 public key of all signers
+    /// @param _sigma Aggregate G1 signature of all signers
+    /// @param _sigTimestamp Timestamp of the signature
+    /// @param _nonSignerIndices Indices of non-signers
+    function addOperatorSig(
+        address _opAddress, 
+        uint256 _stakedAmount, 
+        BN254.G1Point memory _pubG1, 
+        BN254.G2Point memory _pubG2,
+        BN254.G2Point memory _apkG2,
+        BN254.G1Point memory _sigma,
+        uint256 _sigTimestamp,
+        uint32[] memory _nonSignerIndices
+    ) public {
+        if(_sigTimestamp + signatureValidityPeriod > block.timestamp){
+            revert SignatureExpired();
         }
+        bytes32 _hash = keccak256(abi.encodePacked(Action.Add, _opAddress, _stakedAmount, _pubG1.X, _pubG1.Y, _pubG2.X, _pubG2.Y, _sigTimestamp));
+        bool siganatureIsValid;
+        (, siganatureIsValid) = verifySignature(_hash, _apkG2, _sigma, _nonSignerIndices);
+        if(siganatureIsValid == false){
+            revert InvalidSignature();
+        }
+        _addOperator(_opAddress, _stakedAmount, _pubG1, _pubG2);
+    }
 
-        aggregatedG1 = aggregatedG1.plus(operatorInfos[index].pubG1.negate());
+    /// @notice Delete an existing operator uisng Signature
+    /// @param _opAddress Address of the operator to be deleted
+    /// @param _apkG2 Aggregate G2 public key of all signers
+    /// @param _sigma Aggregate G1 signature of all signers
+    /// @param _sigTimestamp Timestamp of the signature
+    /// @param _nonSignerIndices Indices of non-signers
+    function deleteOperatorSig(
+        address _opAddress,
+        BN254.G2Point memory _apkG2,
+        BN254.G1Point memory _sigma,
+        uint256 _sigTimestamp,
+        uint32[] memory _nonSignerIndices
+    ) public {
+        if(_sigTimestamp + signatureValidityPeriod > block.timestamp){
+            revert SignatureExpired();
+        }
+        bytes32 _hash = keccak256(abi.encodePacked(Action.Delete, _opAddress, _sigTimestamp));
+        bool siganatureIsValid;
+        (, siganatureIsValid) = verifySignature(_hash, _apkG2, _sigma, _nonSignerIndices);
+        if(siganatureIsValid == false){
+            revert InvalidSignature();
+        }
+        _deleteOperator(_opAddress);
+    }
 
-        operatorInfos[index].stakedAmount = _stakedAmount;
-        operatorInfos[index].pubG1 = _pubG1;
-        operatorInfos[index].pubG2 = _pubG2;
-
-        aggregatedG1 = aggregatedG1.plus(_pubG1);
-
-        emit OperatorUpdated(index, _stakedAmount, _pubG1, _pubG2);
+    /// @notice Update an existing operator uisng Signature
+    /// @param _opAddress Address of the operator to be updated
+    /// @param _stakedAmount New staked amount by the operator
+    /// @param _pubG1 New public G1 point of the operator
+    /// @param _pubG2 New public G2 point of the operator
+    /// @param _apkG2 Aggregate G2 public key of all signers
+    /// @param _sigma Aggregate G1 signature of all signers
+    /// @param _sigTimestamp Timestamp of the signature
+    /// @param _nonSignerIndices Indices of non-signers
+    function updateOperatorSig(
+        address _opAddress, 
+        uint256 _stakedAmount, 
+        BN254.G1Point memory _pubG1, 
+        BN254.G2Point memory _pubG2,
+        BN254.G2Point memory _apkG2,
+        BN254.G1Point memory _sigma,
+        uint256 _sigTimestamp,
+        uint32[] memory _nonSignerIndices
+    ) public {
+        if(_sigTimestamp + signatureValidityPeriod > block.timestamp){
+            revert SignatureExpired();
+        }
+        bytes32 _hash = keccak256(abi.encodePacked(Action.Update, _opAddress, _stakedAmount, _pubG1.X, _pubG1.Y, _pubG2.X, _pubG2.Y, _sigTimestamp));
+        bool siganatureIsValid;
+        (, siganatureIsValid) = verifySignature(_hash, _apkG2, _sigma, _nonSignerIndices);
+        if(siganatureIsValid == false){
+            revert InvalidSignature();
+        }
+        _updateOperator(_opAddress, _stakedAmount, _pubG1, _pubG2);
     }
 
     /// @notice Verify a signature
@@ -144,5 +225,67 @@ contract SimpleEigenContract is AccessControlUpgradeable {
             apkG2,
             PAIRING_EQUALITY_CHECK_GAS
         );
+    }
+
+    /*******************************************************************************
+                             SETTER FUNCTIONS
+    *******************************************************************************/
+
+    /// @notice Update signature vlidity period
+    /// @param _signatureValidityPeriod New signature vlidity period
+    function setValidityPeriod(uint256 _signatureValidityPeriod) public onlyRole(SETTER_ROLE){
+        signatureValidityPeriod = _signatureValidityPeriod;
+        emit SignatureValidityPeriodUpdated(_signatureValidityPeriod);
+    }
+
+    /*******************************************************************************
+                            INTERNAL FUNCTIONS
+    *******************************************************************************/
+
+    /// @notice Add a new operator
+    /// @param _opAddress Address of the operator
+    /// @param _stakedAmount Staked amount by the operator
+    /// @param _pubG1 Public G1 point of the operator
+    /// @param _pubG2 Public G2 point of the operator
+    function _addOperator(address _opAddress, uint256 _stakedAmount, BN254.G1Point memory _pubG1, BN254.G2Point memory _pubG2) internal {
+        if (address2Index[_opAddress] != 0) {
+            revert OperatorAlreadyAdded();
+        }
+        lastIndex = lastIndex + 1;
+        operatorInfos[lastIndex] = Operator(_opAddress, _stakedAmount, _pubG1, _pubG2);
+        address2Index[_opAddress] = lastIndex;
+        aggregatedG1 = aggregatedG1.plus(_pubG1);
+        emit OperatorAdded(lastIndex, _opAddress, _stakedAmount, _pubG1, _pubG2);
+    }
+
+    /// @notice Delete an existing operator
+    /// @param _opAddress Address of the operator to be deleted
+    function _deleteOperator(address _opAddress) internal {
+        uint32 index = address2Index[_opAddress];
+        if (index == 0) {
+            revert OperatorNotExisted();
+        }
+        aggregatedG1 = aggregatedG1.plus(operatorInfos[index].pubG1.negate());
+        delete address2Index[_opAddress];
+        delete operatorInfos[index];
+        emit OperatorDeleted(index, _opAddress);
+    }
+
+    /// @notice Update an existing operator
+    /// @param _opAddress Address of the operator to be updated
+    /// @param _stakedAmount New staked amount by the operator
+    /// @param _pubG1 New public G1 point of the operator
+    /// @param _pubG2 New public G2 point of the operator
+    function _updateOperator(address _opAddress, uint256 _stakedAmount, BN254.G1Point memory _pubG1, BN254.G2Point memory _pubG2) internal {
+        uint32 index = address2Index[_opAddress];
+        if (index == 0) {
+            revert OperatorNotExisted();
+        }
+        aggregatedG1 = aggregatedG1.plus(operatorInfos[index].pubG1.negate());
+        operatorInfos[index].stakedAmount = _stakedAmount;
+        operatorInfos[index].pubG1 = _pubG1;
+        operatorInfos[index].pubG2 = _pubG2;
+        aggregatedG1 = aggregatedG1.plus(_pubG1);
+        emit OperatorUpdated(index, _opAddress, _stakedAmount, _pubG1, _pubG2);
     }
 }
