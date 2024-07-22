@@ -10,7 +10,7 @@ import {
     Signature 
 } from '../eigensdk-js/src/crypto/bls/attestation';
 import { g1PointToArgs, g2PointToArgs} from '../eigensdk-js/src/utils/helpers';
-import { BN254 } from './utils/BN254';
+import { BN254 } from '../typechain-types/contracts/SimpleEigenContract';
 
 describe("SimpleEigenContract", () => {
     let simpleEigenContract: SimpleEigenContract;
@@ -36,7 +36,7 @@ describe("SimpleEigenContract", () => {
         [admin, dao, user1, user2, setter] = await ethers.getSigners();
 
         const SimpleEigenContractFactory = await ethers.getContractFactory("SimpleEigenContract");
-        simpleEigenContract = (await upgrades.deployProxy(SimpleEigenContractFactory, [await admin.getAddress()])) as SimpleEigenContract;
+        simpleEigenContract = (await upgrades.deployProxy(SimpleEigenContractFactory, [await admin.getAddress()])) as unknown as SimpleEigenContract;
         await simpleEigenContract.waitForDeployment();
 
         // Grant DAO_ROLE to dao signer
@@ -59,8 +59,8 @@ describe("SimpleEigenContract", () => {
 
 
     describe("Operator Management", () => {
-        let mockG1Point: BN254.G1Point;
-        let mockG2Point: BN254.G2Point;
+        let mockG1Point: BN254.G1PointStruct;
+        let mockG2Point: BN254.G2PointStruct;
 
         beforeEach(async () => {
             const mockkeyPair = new KeyPair();
@@ -101,8 +101,8 @@ describe("SimpleEigenContract", () => {
             await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, mockG1Point, mockG2Point);
             
             const newKeyPair = KeyPair.fromString("04");
-            const newG1Point: BN254.G1Point = g1PointToArgs(newKeyPair.pubG1);
-            const newG2Point: BN254.G2Point = g2PointToArgs(newKeyPair.pubG2);
+            const newG1Point: BN254.G1PointStruct = g1PointToArgs(newKeyPair.pubG1);
+            const newG2Point: BN254.G2PointStruct = g2PointToArgs(newKeyPair.pubG2);
             await simpleEigenContract.connect(dao).updateOperatorDAO(await user1.getAddress(), socket2, 2000, newG1Point, newG2Point);
             
             const operatorInfo = await simpleEigenContract.operatorInfos(1);
@@ -126,10 +126,10 @@ describe("SimpleEigenContract", () => {
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
 
-            const encodedPair1G1: BN254.G1Point = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1Point = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair1G2: BN254.G2Point = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2Point = g2PointToArgs(keyPair2.pubG2);
+            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
+            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
+            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
+            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
             
             // Add operators
             await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
@@ -140,8 +140,8 @@ describe("SimpleEigenContract", () => {
             const aggregatedSignature: Signature = sign1.add(sign2);
             const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
 
-            const eachAggregatedPubG2: BN254.G2Point = g2PointToArgs(aggregatedPubG2);
-            const encodedAggregatedSignature: BN254.G1Point = g1PointToArgs(aggregatedSignature);
+            const eachAggregatedPubG2: BN254.G2PointStruct = g2PointToArgs(aggregatedPubG2);
+            const encodedAggregatedSignature: BN254.G1PointStruct = g1PointToArgs(aggregatedSignature);
 
             console.log("is locally verified:", aggregatedSignature.verify(aggregatedPubG2, msgHash));
 
@@ -163,10 +163,10 @@ describe("SimpleEigenContract", () => {
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
 
-            const encodedPair1G1: BN254.G1Point = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1Point = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair1G2: BN254.G2Point = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2Point = g2PointToArgs(keyPair2.pubG2);
+            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
+            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
+            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
+            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
             
             // Add operators
             await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
@@ -176,8 +176,8 @@ describe("SimpleEigenContract", () => {
             const invalidSignature: Signature = sign1.add(sign1);
             const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
 
-            const eachAggregatedPubG2: BN254.G2Point = g2PointToArgs(aggregatedPubG2);
-            const encodedInvalidSignature: BN254.G1Point = g1PointToArgs(invalidSignature);
+            const eachAggregatedPubG2: BN254.G2PointStruct = g2PointToArgs(aggregatedPubG2);
+            const encodedInvalidSignature: BN254.G1PointStruct = g1PointToArgs(invalidSignature);
 
             const [pairingSuccessful, signatureIsValid] = await simpleEigenContract.verifySignature(
                 msgHash,
@@ -198,12 +198,12 @@ describe("SimpleEigenContract", () => {
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
 
-            const encodedPair1G1: BN254.G1Point = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1Point = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair3G1: BN254.G1Point = g1PointToArgs(keyPair3.pubG1);
-            const encodedPair1G2: BN254.G2Point = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2Point = g2PointToArgs(keyPair2.pubG2);
-            const encodedPair3G2: BN254.G2Point = g2PointToArgs(keyPair3.pubG2);
+            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
+            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
+            const encodedPair3G1: BN254.G1PointStruct = g1PointToArgs(keyPair3.pubG1);
+            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
+            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
+            const encodedPair3G2: BN254.G2PointStruct = g2PointToArgs(keyPair3.pubG2);
             
             // Add operators
             await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
@@ -215,8 +215,8 @@ describe("SimpleEigenContract", () => {
             const aggregatedSignature: Signature = sign1.add(sign2);
             const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
 
-            const eachAggregatedPubG2: BN254.G2Point = g2PointToArgs(aggregatedPubG2);
-            const encodedAggregatedSignature: BN254.G1Point = g1PointToArgs(aggregatedSignature);
+            const eachAggregatedPubG2: BN254.G2PointStruct = g2PointToArgs(aggregatedPubG2);
+            const encodedAggregatedSignature: BN254.G1PointStruct = g1PointToArgs(aggregatedSignature);
 
             console.log("is locally verified:", aggregatedSignature.verify(aggregatedPubG2, msgHash));
 
@@ -233,8 +233,8 @@ describe("SimpleEigenContract", () => {
     });
 
     describe("Access Control", () => {
-        let mockG1Point: BN254.G1Point;
-        let mockG2Point: BN254.G2Point;
+        let mockG1Point: BN254.G1PointStruct;
+        let mockG2Point: BN254.G2PointStruct;
 
         beforeEach(async () => {
             const mockkeyPair = new KeyPair();
