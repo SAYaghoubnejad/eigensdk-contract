@@ -143,8 +143,6 @@ describe("SimpleEigenContract", () => {
             const eachAggregatedPubG2: BN254.G2PointStruct = g2PointToArgs(aggregatedPubG2);
             const encodedAggregatedSignature: BN254.G1PointStruct = g1PointToArgs(aggregatedSignature);
 
-            console.log("is locally verified:", aggregatedSignature.verify(aggregatedPubG2, msgHash));
-
             const [pairingSuccessful, signatureIsValid] = await simpleEigenContract.verifySignature(
                 msgHash,
                 eachAggregatedPubG2,
@@ -152,6 +150,7 @@ describe("SimpleEigenContract", () => {
                 []  // No non-signer indices
             );
 
+            expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification
             expect(pairingSuccessful).to.be.true;
             expect(signatureIsValid).to.be.true;
         });
@@ -186,7 +185,8 @@ describe("SimpleEigenContract", () => {
                 []  // No non-signer indices
             );
 
-            expect(pairingSuccessful).to.be.false;
+            expect(invalidSignature.verify(aggregatedPubG2, msgHash)).to.be.false; // local verification
+            expect(pairingSuccessful).to.be.true;
             expect(signatureIsValid).to.be.false;
         });
 
@@ -218,8 +218,6 @@ describe("SimpleEigenContract", () => {
             const eachAggregatedPubG2: BN254.G2PointStruct = g2PointToArgs(aggregatedPubG2);
             const encodedAggregatedSignature: BN254.G1PointStruct = g1PointToArgs(aggregatedSignature);
 
-            console.log("is locally verified:", aggregatedSignature.verify(aggregatedPubG2, msgHash));
-
             const [pairingSuccessful, signatureIsValid] = await simpleEigenContract.verifySignature(
                 msgHash,
                 eachAggregatedPubG2,
@@ -227,6 +225,7 @@ describe("SimpleEigenContract", () => {
                 [3]  // No non-signer indices
             );
 
+            expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification
             expect(pairingSuccessful).to.be.true;
             expect(signatureIsValid).to.be.true;
         });
