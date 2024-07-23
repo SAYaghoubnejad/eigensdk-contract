@@ -1,3 +1,4 @@
+[![Hardhat Tests](https://github.com/SAYaghoubnejad/eigensdk-contract/actions/workflows/hardhat-tests.yml/badge.svg)](https://github.com/SAYaghoubnejad/eigensdk-contract/actions/workflows/hardhat-tests.yml)
 # Sample Hardhat Project
 
 This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
