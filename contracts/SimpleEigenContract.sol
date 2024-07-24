@@ -52,6 +52,8 @@ contract SimpleEigenContract is AccessControlUpgradeable {
     error OperatorNotExisted();
     error InvalidSignature();
     error SignatureExpired();
+    error InvalidTimestamp();
+    error InvalidOperatorIndex();
 
     /*******************************************************************************
                                 PUBLIC FUNCTIONS
@@ -124,7 +126,10 @@ contract SimpleEigenContract is AccessControlUpgradeable {
         uint256 _sigTimestamp,
         uint32[] memory _nonSignerIndices
     ) public {
-        if (_sigTimestamp + signatureValidityPeriod > block.timestamp) {
+        if (_sigTimestamp > block.timestamp) {
+            revert InvalidTimestamp();
+        }
+        if (block.timestamp - _sigTimestamp > signatureValidityPeriod) {
             revert SignatureExpired();
         }
         bytes32 _hash = keccak256(abi.encodePacked(Action.Add, _opAddress, _socket, _stakedAmount, _pubG1.X, _pubG1.Y, _pubG2.X, _pubG2.Y, _sigTimestamp));
@@ -149,7 +154,10 @@ contract SimpleEigenContract is AccessControlUpgradeable {
         uint256 _sigTimestamp,
         uint32[] memory _nonSignerIndices
     ) public {
-        if (_sigTimestamp + signatureValidityPeriod > block.timestamp) {
+        if (_sigTimestamp > block.timestamp) {
+            revert InvalidTimestamp();
+        }
+        if (block.timestamp - _sigTimestamp > signatureValidityPeriod) {
             revert SignatureExpired();
         }
         bytes32 _hash = keccak256(abi.encodePacked(Action.Delete, _opAddress, _sigTimestamp));
@@ -182,7 +190,10 @@ contract SimpleEigenContract is AccessControlUpgradeable {
         uint256 _sigTimestamp,
         uint32[] memory _nonSignerIndices
     ) public {
-        if (_sigTimestamp + signatureValidityPeriod > block.timestamp) {
+        if (_sigTimestamp > block.timestamp) {
+            revert InvalidTimestamp();
+        }
+        if (block.timestamp - _sigTimestamp > signatureValidityPeriod) {
             revert SignatureExpired();
         }
         bytes32 _hash = keccak256(abi.encodePacked(Action.Update, _opAddress, _socket, _stakedAmount, _pubG1.X, _pubG1.Y, _pubG2.X, _pubG2.Y, _sigTimestamp));
@@ -211,9 +222,14 @@ contract SimpleEigenContract is AccessControlUpgradeable {
         if (nonSignerIndices.length == 0) {
             apkG1 = aggregatedG1;
         } else {
+            if (nonSignerIndices[0] == 0 || operatorInfos[nonSignerIndices[0]].opAddress == address(0)){
+                revert InvalidOperatorIndex();
+            }
             BN254.G1Point memory apk = operatorInfos[nonSignerIndices[0]].pubG1;
             for (uint32 i = 1; i < nonSignerIndices.length; i++) {
-                require(operatorInfos[nonSignerIndices[i]].opAddress != address(0), "Invalid operator index");
+                if (nonSignerIndices[i] == 0 || operatorInfos[nonSignerIndices[i]].opAddress == address(0)){
+                    revert InvalidOperatorIndex();
+                }
                 apk = apk.plus(operatorInfos[nonSignerIndices[i]].pubG1);
             }
             apk = apk.negate();
