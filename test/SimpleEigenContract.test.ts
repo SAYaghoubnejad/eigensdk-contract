@@ -43,7 +43,7 @@ describe("SimpleEigenContract", () => {
         // Grant DAO_ROLE to dao signer
         await simpleEigenContract.connect(admin).grantRole(await simpleEigenContract.DAO_ROLE(), await dao.getAddress());
         // Grant SETTER_ROLE to setter signer
-        await simpleEigenContract.connect(admin).grantRole(await simpleEigenContract.SETTER_ROLE(), await setter.getAddress());
+        await simpleEigenContract.connect(admin).grantRole(await simpleEigenContract.SET_SIGN_PERIOD_ROLE(), await setter.getAddress());
     });
 
     describe("Initialization", () => {

@@ -15,11 +15,14 @@ contract SimpleEigenContract is AccessControlUpgradeable {
 
     // Roles
     bytes32 public constant DAO_ROLE = keccak256("DAO_ROLE");
-    bytes32 public constant SETTER_ROLE = keccak256("SETTER_ROLE");
+    bytes32 public constant SET_SIGN_PERIOD_ROLE = keccak256("SET_SIGN_PERIOD_ROLE");
+    bytes32 public constant SET_STAKE_LIMIT_ROLE = keccak256("SET_STAKE_LIMIT_ROLE");
 
     // Gas cost for the pairing equality check
     uint256 internal constant PAIRING_EQUALITY_CHECK_GAS = 120000;
     uint256 public signatureValidityPeriod;
+    uint256 public totalStaked;
+    uint256 public minStakedLimit;
 
     struct Operator {
         address opAddress;
@@ -46,6 +49,7 @@ contract SimpleEigenContract is AccessControlUpgradeable {
     event OperatorDeleted(uint32 indexed index, address indexed opAddress);
     event OperatorUpdated(uint32 indexed index, address indexed opAddress, uint256 stakedAmount, BN254.G1Point pubG1, BN254.G2Point pubG2);
     event SignatureValidityPeriodUpdated(uint256 validityPeriod);
+    event MinStakedLimitUpdated(uint256 minStakedLimit);
 
     // Errors
     error OperatorAlreadyAdded();
@@ -54,6 +58,7 @@ contract SimpleEigenContract is AccessControlUpgradeable {
     error SignatureExpired();
     error InvalidTimestamp();
     error InvalidOperatorIndex();
+    error InsufficientStaked();
 
     /*******************************************************************************
                                 PUBLIC FUNCTIONS
@@ -219,6 +224,7 @@ contract SimpleEigenContract is AccessControlUpgradeable {
         uint32[] memory nonSignerIndices
     ) public view returns (bool pairingSuccessful, bool siganatureIsValid) {
         BN254.G1Point memory apkG1;
+        uint256 stakedAmount = totalStaked;
         if (nonSignerIndices.length == 0) {
             apkG1 = aggregatedG1;
         } else {
@@ -226,16 +232,20 @@ contract SimpleEigenContract is AccessControlUpgradeable {
                 revert InvalidOperatorIndex();
             }
             BN254.G1Point memory apk = operatorInfos[nonSignerIndices[0]].pubG1;
+            stakedAmount -= operatorInfos[nonSignerIndices[0]].stakedAmount;
             for (uint32 i = 1; i < nonSignerIndices.length; i++) {
                 if (nonSignerIndices[i] == 0 || operatorInfos[nonSignerIndices[i]].opAddress == address(0)){
                     revert InvalidOperatorIndex();
                 }
                 apk = apk.plus(operatorInfos[nonSignerIndices[i]].pubG1);
+                stakedAmount -= operatorInfos[nonSignerIndices[i]].stakedAmount;
             }
             apk = apk.negate();
             apkG1 = apk.plus(aggregatedG1);
         }
-
+        if (stakedAmount < minStakedLimit){
+            revert InsufficientStaked();
+        }
         return trySignatureAndApkVerification(msgHash, apkG1, apkG2, sigma);
     }
 
@@ -268,9 +278,16 @@ contract SimpleEigenContract is AccessControlUpgradeable {
 
     /// @notice Update signature vlidity period
     /// @param _signatureValidityPeriod New signature vlidity period
-    function setValidityPeriod(uint256 _signatureValidityPeriod) public onlyRole(SETTER_ROLE) {
+    function setValidityPeriod(uint256 _signatureValidityPeriod) public onlyRole(SET_SIGN_PERIOD_ROLE) {
         signatureValidityPeriod = _signatureValidityPeriod;
         emit SignatureValidityPeriodUpdated(_signatureValidityPeriod);
+    }
+
+    /// @notice Update signature vlidity period
+    /// @param minStakedLimit_ New signature vlidity period
+    function setMinStakedLimit(uint256 minStakedLimit_) public onlyRole(SET_STAKE_LIMIT_ROLE) {
+        minStakedLimit = minStakedLimit_;
+        emit MinStakedLimitUpdated(minStakedLimit_);
     }
 
     /*******************************************************************************
@@ -291,6 +308,7 @@ contract SimpleEigenContract is AccessControlUpgradeable {
         operatorInfos[lastIndex] = Operator(_opAddress, _socket, _stakedAmount, _pubG1, _pubG2);
         address2Index[_opAddress] = lastIndex;
         aggregatedG1 = aggregatedG1.plus(_pubG1);
+        totalStaked += _stakedAmount;
         emit OperatorAdded(lastIndex, _opAddress, _stakedAmount, _pubG1, _pubG2);
     }
 
@@ -302,6 +320,7 @@ contract SimpleEigenContract is AccessControlUpgradeable {
             revert OperatorNotExisted();
         }
         aggregatedG1 = aggregatedG1.plus(operatorInfos[index].pubG1.negate());
+        totalStaked -= operatorInfos[index].stakedAmount;
         delete address2Index[_opAddress];
         delete operatorInfos[index];
         emit OperatorDeleted(index, _opAddress);
@@ -319,11 +338,13 @@ contract SimpleEigenContract is AccessControlUpgradeable {
             revert OperatorNotExisted();
         }
         aggregatedG1 = aggregatedG1.plus(operatorInfos[index].pubG1.negate());
+        totalStaked -= operatorInfos[index].stakedAmount;
         operatorInfos[index].stakedAmount = _stakedAmount;
         operatorInfos[index].socket = _socket;
         operatorInfos[index].pubG1 = _pubG1;
         operatorInfos[index].pubG2 = _pubG2;
         aggregatedG1 = aggregatedG1.plus(_pubG1);
+        totalStaked += _stakedAmount;
         emit OperatorUpdated(index, _opAddress, _stakedAmount, _pubG1, _pubG2);
     }
 }
