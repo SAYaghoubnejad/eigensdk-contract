@@ -69,6 +69,8 @@ interface ISimpleEigenContract {
     error ExpiredAPK();
     /// @notice Thrown when the nonce of signature is invalid
     error InvalidNonce();
+    /// @notice Thrown when index to access an array is invalid
+    error InvalidIndex();
 
     /// @notice Initialize the contract
     /// @param admin_ Address of the admin, can set rakeback token and rakeback tiers
@@ -155,4 +157,10 @@ interface ISimpleEigenContract {
     /// @notice Update minimum staked limit
     /// @param minStakedLimit_ New minimum limit for staked amount
     function setMinStakedLimit(uint256 minStakedLimit_) external;
+
+    /// @notice Get operators within a specified range
+    /// @param from_ The starting index of the range (inclusive)
+    /// @param to_ The ending index of the range (exclusive)
+    /// @return addresses An array of operator addresses within the specified range
+    function get_operators(uint32 from_, uint32 to_) external view returns (address[] memory addresses);
 }

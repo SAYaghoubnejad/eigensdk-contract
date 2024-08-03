@@ -37,6 +37,8 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
     mapping(uint32 => Operator) public operatorInfos;
     /// @notice Mapping from operator address to index
     mapping(address => uint32) public address2Index;
+    /// @notice Mapping from index to operator address
+    mapping(uint32 => address) public index2address;
 
     /// @notice Mapping to store aggregated history for G1 points
     /// @dev The key is a bytes32 hash of the G1Point, and the value is a uint256
@@ -145,9 +147,9 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
             nonce_.eventNumber,
             sigTimestamp_
         ));
-        bool siganatureIsValid;
-        (, siganatureIsValid) = verifySignature(_hash, signature_);
-        if (siganatureIsValid == false) {
+        bool signatureIsValid;
+        (, signatureIsValid) = verifySignature(_hash, signature_);
+        if (signatureIsValid == false) {
             revert InvalidSignature();
         }
         lastNonce = nonce_;
@@ -239,6 +241,23 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         return _trySignatureAndApkVerification(msgHash_, signature_.apkG1, signature_.apkG2, signature_.sigma);
     }
 
+    /// @inheritdoc ISimpleEigenContract
+    function get_operators(uint32 from_, uint32 to_) external view override returns (address[] memory addresses){
+        if (to_ == 0){
+            to_ = lastIndex;
+        }
+        if (from_ == 0){
+            from_ = 1;
+        }
+        if (from_ > lastIndex || to_ > lastIndex || to_ < from_){
+            revert InvalidIndex();
+        }
+        addresses = new address[](to_ - from_);
+        for (uint32 i = from_; i <= to_; i++){
+            addresses[i - from_] = index2address[i];
+        }
+    }
+
     /*******************************************************************************
                              SETTER FUNCTIONS
     *******************************************************************************/
@@ -266,15 +285,15 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
     /// @param apkG2_ Provided G2 public key
     /// @param sigma_ G1 point signature
     /// @return pairingSuccessful True if the pairing precompile call was successful
-    /// @return siganatureIsValid True if the signature is valid
+    /// @return signatureIsValid True if the signature is valid
     function _trySignatureAndApkVerification(
         bytes32 msgHash_,
         BN254.G1Point memory apk_,
         BN254.G2Point memory apkG2_,
         BN254.G1Point memory sigma_
-    ) internal view returns (bool pairingSuccessful, bool siganatureIsValid) {
+    ) internal view returns (bool pairingSuccessful, bool signatureIsValid) {
         uint256 gamma = uint256(keccak256(abi.encodePacked(msgHash_, apk_.X, apk_.Y, apkG2_.X[0], apkG2_.X[1], apkG2_.Y[0], apkG2_.Y[1], sigma_.X, sigma_.Y))) % BN254.FR_MODULUS;
-        (pairingSuccessful, siganatureIsValid) = BN254.safePairing(
+        (pairingSuccessful, signatureIsValid) = BN254.safePairing(
             sigma_.plus(apk_.scalar_mul(gamma)),
             BN254.negGeneratorG2(),
             BN254.hashToG1(msgHash_).plus(BN254.generatorG1().scalar_mul(gamma)),
@@ -292,6 +311,7 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         lastIndex = lastIndex + 1;
         operatorInfos[lastIndex] = Operator(op_.opAddress, op_.socket, op_.stakedAmount, op_.pubG1, op_.pubG2);
         address2Index[op_.opAddress] = lastIndex;
+        index2address[lastIndex] = op_.opAddress;
         setAggregatedG1History(aggregatedG1, block.timestamp, totalStaked);
         aggregatedG1 = aggregatedG1.plus(op_.pubG1);
         totalStaked += op_.stakedAmount;
@@ -312,6 +332,7 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         setAggregatedG1History(aggregatedG1, 0, totalStaked);
         delete address2Index[opAddress_];
         delete operatorInfos[index];
+        delete index2address[index];
         emit OperatorDeleted(index, opAddress_);
     }
 
