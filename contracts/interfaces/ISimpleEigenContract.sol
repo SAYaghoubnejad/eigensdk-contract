@@ -32,12 +32,20 @@ interface ISimpleEigenContract {
         uint32[] nonSignerIndices;
     }
 
+    /// @notice Struct representing the nonce of signature using for synchronization
+    struct SynchronizationNonce {
+        uint256 nonce;
+        uint256 blockNumber;
+        uint256 txNumber;
+        uint256 eventNumber;
+    }
+
     /// @notice Event emitted when an operator is added
-    event OperatorAdded(uint32 indexed index, address indexed opAddress, uint256 stakedAmount, BN254.G1Point pubG1, BN254.G2Point pubG2);
+    event OperatorAdded(uint32 indexed index, address indexed opAddress, string socket, uint256 stakedAmount, BN254.G1Point pubG1, BN254.G2Point pubG2);
     /// @notice Event emitted when an operator is deleted
     event OperatorDeleted(uint32 indexed index, address indexed opAddress);
     /// @notice Event emitted when an operator is updated
-    event OperatorUpdated(uint32 indexed index, address indexed opAddress, uint256 stakedAmount, BN254.G1Point pubG1, BN254.G2Point pubG2);
+    event OperatorUpdated(uint32 indexed index, address indexed opAddress, string socket, uint256 stakedAmount, BN254.G1Point pubG1, BN254.G2Point pubG2);
     /// @notice Event emitted when validity periods are updated
     event ValidityPeriodsUpdated(uint256 signatureValidityPeriod, uint256 apkValidityPeriod);
     /// @notice Event emitted when minimum staked limit is updated
@@ -59,23 +67,17 @@ interface ISimpleEigenContract {
     error InsufficientStaked();
     /// @notice Thrown when the APK has expired
     error ExpiredAPK();
+    /// @notice Thrown when the nonce of signature is invalid
+    error InvalidNonce();
 
     /// @notice Initialize the contract
     /// @param admin_ Address of the admin, can set rakeback token and rakeback tiers
     function initialize(address admin_) external;
 
     /// @notice Add a new operator by DAO
-    /// @param opAddress_ Address of the operator
-    /// @param socket_ Socket of the operator
-    /// @param stakedAmount_ Staked amount by the operator
-    /// @param pubG1_ Public G1 point of the operator
-    /// @param pubG2_ Public G2 point of the operator
+    /// @param op_ The Operator to be added
     function addOperatorDAO(
-        address opAddress_,
-        string calldata socket_,
-        uint256 stakedAmount_,
-        BN254.G1Point calldata pubG1_,
-        BN254.G2Point calldata pubG2_
+        Operator calldata op_
     ) external;
 
     /// @notice Delete an existing operator by DAO
@@ -83,62 +85,44 @@ interface ISimpleEigenContract {
     function deleteOperatorDAO(address opAddress_) external;
 
     /// @notice Update an existing operator by DAO
-    /// @param opAddress_ Address of the operator to be updated
-    /// @param socket_ Socket of the operator
-    /// @param stakedAmount_ New staked amount by the operator
-    /// @param pubG1_ New public G1 point of the operator
-    /// @param pubG2_ New public G2 point of the operator
+    /// @param op_ The Operator to be added
     function updateOperatorDAO(
-        address opAddress_,
-        string calldata socket_,
-        uint256 stakedAmount_,
-        BN254.G1Point calldata pubG1_,
-        BN254.G2Point calldata pubG2_
+        Operator calldata op_
     ) external;
 
     /// @notice Add a new operator using Signature
-    /// @param opAddress_ Address of the operator
-    /// @param socket_ Socket of the operator
-    /// @param stakedAmount_ Staked amount by the operator
-    /// @param pubG1_ Public G1 point of the operator
-    /// @param pubG2_ Public G2 point of the operator
+    /// @param op_ The Operator to be added
     /// @param signature_ Signature to add an operator
+    /// @param nonce_ The nonce used for adding operator
     /// @param sigTimestamp_ Timestamp of the signature
     function addOperatorSig(
-        address opAddress_,
-        string calldata socket_,
-        uint256 stakedAmount_,
-        BN254.G1Point calldata pubG1_,
-        BN254.G2Point calldata pubG2_,
+        Operator calldata op_,
         Signature memory signature_,
+        SynchronizationNonce calldata nonce_,
         uint256 sigTimestamp_
     ) external;
 
     /// @notice Delete an existing operator using Signature
     /// @param opAddress_ Address of the operator to be deleted
     /// @param signature_ Signature to delete an operator
+    /// @param nonce_ The nonce used for deleting operator
     /// @param sigTimestamp_ Timestamp of the signature
     function deleteOperatorSig(
         address opAddress_,
         Signature memory signature_,
+        SynchronizationNonce calldata nonce_,
         uint256 sigTimestamp_
     ) external;
 
     /// @notice Update an existing operator using Signature
-    /// @param opAddress_ Address of the operator to be updated
-    /// @param socket_ Socket of the operator
-    /// @param stakedAmount_ New staked amount by the operator
-    /// @param pubG1_ New public G1 point of the operator
-    /// @param pubG2_ New public G2 point of the operator
+    /// @param op_ The Operator to be added
     /// @param signature_ Signature to update an operator
+    /// @param nonce_ The nonce used for updating operator
     /// @param sigTimestamp_ Timestamp of the signature
     function updateOperatorSig(
-        address opAddress_,
-        string calldata socket_,
-        uint256 stakedAmount_,
-        BN254.G1Point calldata pubG1_,
-        BN254.G2Point calldata pubG2_,
+        Operator calldata op_,
         Signature memory signature_,
+        SynchronizationNonce calldata nonce_,
         uint256 sigTimestamp_
     ) external;
 

@@ -4,7 +4,20 @@ import '@openzeppelin/hardhat-upgrades';
 import "@nomicfoundation/hardhat-toolbox";
 
 const config: HardhatUserConfig = {
-  solidity: "0.8.24",
+  solidity: {
+        compilers: [
+            {
+                version: "0.8.26",
+                settings: {
+                    optimizer: {
+                        enabled: true,
+                        runs: 100000,
+                    },
+                    viaIR: true
+                },
+            },
+        ],
+    },
 };
 
 export default config;

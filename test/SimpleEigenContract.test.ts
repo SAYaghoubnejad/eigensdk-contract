@@ -11,7 +11,7 @@ import {
     Signature 
 } from '../eigensdk-js/src/crypto/bls/attestation';
 import { g1PointToArgs, g2PointToArgs} from '../eigensdk-js/src/utils/helpers';
-import { BN254 } from '../typechain-types/contracts/SimpleEigenContract';
+import { BN254, ISimpleEigenContract } from '../typechain-types/contracts/SimpleEigenContract';
 
 describe("SimpleEigenContract", () => {
     let simpleEigenContract: SimpleEigenContract;
@@ -98,7 +98,14 @@ describe("SimpleEigenContract", () => {
         });
 
         it("should add an operator", async () => {
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, mockG1Point, mockG2Point);
+            const op = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: mockG1Point,
+                pubG2: mockG2Point
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op);
             
             const operatorInfo = await simpleEigenContract.operatorInfos(1);
             expect(operatorInfo.opAddress).to.equal(await user1.getAddress());
@@ -112,13 +119,34 @@ describe("SimpleEigenContract", () => {
         });
 
         it("should not allow adding the same operator twice", async () => {
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, mockG1Point, mockG2Point);
-            await expect(simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 2000, mockG1Point, mockG2Point))
+            const op = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: mockG1Point,
+                pubG2: mockG2Point
+            }
+            const newOp = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 2000,
+                pubG1: mockG1Point,
+                pubG2: mockG2Point
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op);
+            await expect(simpleEigenContract.connect(dao).addOperatorDAO(newOp))
                 .to.be.revertedWithCustomError(simpleEigenContract, "OperatorAlreadyAdded");
         });
 
         it("should delete an operator", async () => {
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 2000, mockG1Point, mockG2Point);
+            const op = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 2000,
+                pubG1: mockG1Point,
+                pubG2: mockG2Point
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op);
             const tx = await simpleEigenContract.connect(dao).deleteOperatorDAO(await user1.getAddress());
             const receipt = await tx.wait();
             const block = await ethers.provider.getBlock(receipt.blockNumber);
@@ -140,12 +168,26 @@ describe("SimpleEigenContract", () => {
         });
 
         it("should update an operator", async () => {
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, mockG1Point, mockG2Point);
+            const op = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: mockG1Point,
+                pubG2: mockG2Point
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op);
             
             const newKeyPair = KeyPair.fromString("04");
             const newG1Point: BN254.G1PointStruct = g1PointToArgs(newKeyPair.pubG1);
             const newG2Point: BN254.G2PointStruct = g2PointToArgs(newKeyPair.pubG2);
-            const tx = await simpleEigenContract.connect(dao).updateOperatorDAO(await user1.getAddress(), socket2, 2000, newG1Point, newG2Point);
+            const newOp = {
+                opAddress: await user1.getAddress(),
+                socket: socket2,
+                stakedAmount: 2000,
+                pubG1: newG1Point,
+                pubG2: newG2Point
+            }
+            const tx = await simpleEigenContract.connect(dao).updateOperatorDAO(newOp);
             const receipt = await tx.wait();
             const block = await ethers.provider.getBlock(receipt.blockNumber);
             const updateBlockTimestamp = block.timestamp;
@@ -165,7 +207,14 @@ describe("SimpleEigenContract", () => {
         });
 
         it("should not allow updating a non-existent operator", async () => {
-            await expect(simpleEigenContract.connect(dao).updateOperatorDAO(await user1.getAddress(), socket1, 2000, mockG1Point, mockG2Point))
+            const op = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 2000,
+                pubG1: mockG1Point,
+                pubG2: mockG2Point
+            }
+            await expect(simpleEigenContract.connect(dao).updateOperatorDAO(op))
                 .to.be.revertedWithCustomError(simpleEigenContract, "OperatorNotExisted");
         });
     });
@@ -181,6 +230,9 @@ describe("SimpleEigenContract", () => {
         let encodedPair1G2: BN254.G2PointStruct;
         let encodedPair2G2: BN254.G2PointStruct;
         let encodedPair3G2: BN254.G2PointStruct;
+
+        let op1: ISimpleEigenContract.OperatorStruct, op2: ISimpleEigenContract.OperatorStruct;
+        let nonce1: ISimpleEigenContract.SynchronizationNonceStruct;
 
         const Action = { ADD: 0, DELETE: 1, UPDATE: 2 };
 
@@ -201,15 +253,41 @@ describe("SimpleEigenContract", () => {
             initalStake1 = ethers.parseEther("10"); // 100 ETH
             initalStake2= ethers.parseEther("30"); // 100 ETH
 
+            let op1 = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: initalStake1,
+                pubG1: encodedPair1G1,
+                pubG2: encodedPair1G2
+            }
+            let op2 = {
+                opAddress: await user2.getAddress(),
+                socket: socket2,
+                stakedAmount: initalStake2,
+                pubG1: encodedPair2G1,
+                pubG2: encodedPair2G2
+            }
+
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, initalStake1, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, initalStake2, encodedPair2G1, encodedPair2G2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            nonce1 = {
+                nonce: 1,
+                blockNumber: (await ethers.provider.getBlock("latest")).number,
+                txNumber: 1,
+                eventNumber: 1
+            }
         });
 
         it("should add an operator", async () => {
             // Define your parameters
-            const socket = "127.0.0.1:8080";
-            const stakedAmount = ethers.parseEther("100"); // 100 ETH
+            const op = {
+                opAddress: await user3.getAddress(),
+                socket: "127.0.0.1:8080",
+                stakedAmount: ethers.parseEther("100"),
+                pubG1: encodedPair3G1,
+                pubG2: encodedPair3G2
+            }
             const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
 
             // Create the hash
@@ -223,17 +301,25 @@ describe("SimpleEigenContract", () => {
                     "uint256", 
                     "uint256[]", 
                     "uint256[]", 
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
                     "uint256"
                 ],
                 [
                     Action.ADD, 
-                    await user3.getAddress(), 
-                    socket, 
-                    stakedAmount, 
+                    op.opAddress,
+                    op.socket,
+                    op.stakedAmount,
                     encodedPair3G1.X, 
                     encodedPair3G1.Y, 
                     encodedPair3G2.X, 
-                    encodedPair3G2.Y, 
+                    encodedPair3G2.Y,
+                    nonce1.nonce,
+                    nonce1.blockNumber,
+                    nonce1.txNumber,
+                    nonce1.eventNumber,
                     blockTimestamp
                 ]
             );
@@ -246,19 +332,16 @@ describe("SimpleEigenContract", () => {
 
             expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
             const tx = await simpleEigenContract.connect(user3).addOperatorSig(
-                await user3.getAddress(), 
-                socket, 
-                stakedAmount, 
-                encodedPair3G1, 
-                encodedPair3G2,
+                op,
                 signature,
+                nonce1,
                 blockTimestamp
             );
             const receipt = await tx.wait();
@@ -267,7 +350,7 @@ describe("SimpleEigenContract", () => {
             
             const operatorInfo = await simpleEigenContract.operatorInfos(3);
             expect(operatorInfo.opAddress).to.equal(await user3.getAddress());
-            expect(operatorInfo.stakedAmount).to.equal(stakedAmount);
+            expect(operatorInfo.stakedAmount).to.equal(op.stakedAmount);
             expect(operatorInfo.pubG1.X).to.equal(encodedPair3G1.X);
             expect(operatorInfo.pubG1.Y).to.equal(encodedPair3G1.Y);
             expect(operatorInfo.pubG2.X[0]).to.equal(encodedPair3G2.X[0]);
@@ -280,14 +363,19 @@ describe("SimpleEigenContract", () => {
             expect(apkTimestamp).to.be.equal(addBlockTimestamp);
 
             const [apkTimestamp2, totaSstakedAmount2] = await simpleEigenContract.getAggregatedG1History(g1PointToArgs(aggregatedPubG1.add(keyPair3.pubG1)));
-            expect(totaSstakedAmount2).to.be.equal(stakedAmount + initalStake1 + initalStake2);
+            expect(totaSstakedAmount2).to.be.equal(op.stakedAmount + initalStake1 + initalStake2);
             expect(apkTimestamp2).to.be.equal(0);
         });
 
         it("should not allow add an operator with future signature", async () => {
             // Define your parameters
-            const socket = "127.0.0.1:8080";
-            const stakedAmount = ethers.parseEther("100"); // 100 ETH
+            const op = {
+                opAddress: await user3.getAddress(),
+                socket: "127.0.0.1:8080",
+                stakedAmount: ethers.parseEther("100"),
+                pubG1: encodedPair3G1,
+                pubG2: encodedPair3G2
+            }
             const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp + 1000;
 
             // Create the hash
@@ -301,17 +389,25 @@ describe("SimpleEigenContract", () => {
                     "uint256", 
                     "uint256[]", 
                     "uint256[]", 
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
                     "uint256"
                 ],
                 [
                     Action.ADD, 
-                    await user3.getAddress(), 
-                    socket, 
-                    stakedAmount, 
+                    op.opAddress,
+                    op.socket,
+                    op.stakedAmount,
                     encodedPair3G1.X, 
                     encodedPair3G1.Y, 
                     encodedPair3G2.X, 
-                    encodedPair3G2.Y, 
+                    encodedPair3G2.Y,
+                    nonce1.nonce,
+                    nonce1.blockNumber,
+                    nonce1.txNumber,
+                    nonce1.eventNumber,
                     blockTimestamp
                 ]
             );
@@ -331,20 +427,22 @@ describe("SimpleEigenContract", () => {
                 nonSignerIndices: []
             }
             await expect(simpleEigenContract.connect(user3).addOperatorSig(
-                await user3.getAddress(), 
-                socket, 
-                stakedAmount, 
-                encodedPair3G1, 
-                encodedPair3G2,
+                op,
                 signature,
+                nonce1,
                 blockTimestamp
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidTimestamp");
         });
 
         it("should not allow add an operator with update signature", async () => {
             // Define your parameters
-            const socket = "127.0.0.1:8080";
-            const stakedAmount = ethers.parseEther("100"); // 100 ETH
+            const op = {
+                opAddress: await user3.getAddress(),
+                socket: "127.0.0.1:8080",
+                stakedAmount: ethers.parseEther("100"),
+                pubG1: encodedPair3G1,
+                pubG2: encodedPair3G2
+            }
             const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
 
             // Create the hash
@@ -357,18 +455,26 @@ describe("SimpleEigenContract", () => {
                     "uint256", 
                     "uint256", 
                     "uint256[]", 
-                    "uint256[]", 
+                    "uint256[]",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
                     "uint256"
                 ],
                 [
                     Action.UPDATE, 
-                    await user3.getAddress(), 
-                    socket, 
-                    stakedAmount, 
+                    op.opAddress,
+                    op.socket,
+                    op.stakedAmount,
                     encodedPair3G1.X, 
                     encodedPair3G1.Y, 
                     encodedPair3G2.X, 
-                    encodedPair3G2.Y, 
+                    encodedPair3G2.Y,
+                    nonce1.nonce,
+                    nonce1.blockNumber,
+                    nonce1.txNumber,
+                    nonce1.eventNumber,
                     blockTimestamp
                 ]
             );
@@ -388,20 +494,22 @@ describe("SimpleEigenContract", () => {
                 nonSignerIndices: []
             }
             await expect(simpleEigenContract.connect(user3).addOperatorSig(
-                await user3.getAddress(), 
-                socket, 
-                stakedAmount, 
-                encodedPair3G1, 
-                encodedPair3G2,
+                op,
                 signature,
+                nonce1,
                 blockTimestamp
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidSignature");
         });
 
         it("should not allow add an operator with expired signature", async () => {
             // Define your parameters
-            const socket = "127.0.0.1:8080";
-            const stakedAmount = ethers.parseEther("100"); // 100 ETH
+            const op = {
+                opAddress: await user3.getAddress(),
+                socket: "127.0.0.1:8080",
+                stakedAmount: ethers.parseEther("100"),
+                pubG1: encodedPair3G1,
+                pubG2: encodedPair3G2
+            }
             const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
 
             // Create the hash
@@ -414,18 +522,26 @@ describe("SimpleEigenContract", () => {
                     "uint256", 
                     "uint256", 
                     "uint256[]", 
-                    "uint256[]", 
+                    "uint256[]",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
                     "uint256"
                 ],
                 [
                     Action.ADD, 
-                    await user3.getAddress(), 
-                    socket, 
-                    stakedAmount, 
+                    op.opAddress,
+                    op.socket,
+                    op.stakedAmount,
                     encodedPair3G1.X, 
                     encodedPair3G1.Y, 
                     encodedPair3G2.X, 
-                    encodedPair3G2.Y, 
+                    encodedPair3G2.Y,
+                    nonce1.nonce,
+                    nonce1.blockNumber,
+                    nonce1.txNumber,
+                    nonce1.eventNumber,
                     blockTimestamp
                 ]
             );
@@ -447,20 +563,22 @@ describe("SimpleEigenContract", () => {
             await ethers.provider.send("evm_increaseTime", [10 * 3600]);
             await ethers.provider.send("evm_mine");
             await expect(simpleEigenContract.connect(user3).addOperatorSig(
-                await user3.getAddress(), 
-                socket, 
-                stakedAmount, 
-                encodedPair3G1, 
-                encodedPair3G2,
+                op,
                 signature,
+                nonce1,
                 blockTimestamp
             )).to.be.revertedWithCustomError(simpleEigenContract, "SignatureExpired");
         });
 
         it("should not allow add an operator with invalid signature", async () => {
             // Define your parameters
-            const socket = "127.0.0.1:8080";
-            const stakedAmount = ethers.parseEther("100"); // 100 ETH
+            const op = {
+                opAddress: await user3.getAddress(),
+                socket: "127.0.0.1:8080",
+                stakedAmount: ethers.parseEther("100"),
+                pubG1: encodedPair3G1,
+                pubG2: encodedPair3G2
+            }
             const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
 
             // Create the hash
@@ -474,17 +592,25 @@ describe("SimpleEigenContract", () => {
                     "uint256", 
                     "uint256[]", 
                     "uint256[]", 
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
                     "uint256"
                 ],
                 [
                     Action.ADD, 
-                    await user3.getAddress(), 
-                    socket, 
-                    stakedAmount, 
+                    op.opAddress,
+                    op.socket,
+                    op.stakedAmount,
                     encodedPair3G1.X, 
                     encodedPair3G1.Y, 
                     encodedPair3G2.X, 
-                    encodedPair3G2.Y, 
+                    encodedPair3G2.Y,
+                    nonce1.nonce,
+                    nonce1.blockNumber,
+                    nonce1.txNumber,
+                    nonce1.eventNumber,
                     blockTimestamp
                 ]
             );
@@ -504,12 +630,9 @@ describe("SimpleEigenContract", () => {
                 nonSignerIndices: []
             }
             await expect(simpleEigenContract.connect(user3).addOperatorSig(
-                await user3.getAddress(), 
-                socket, 
-                stakedAmount, 
-                encodedPair3G1, 
-                encodedPair3G2,
+                op,
                 signature,
+                nonce1,
                 blockTimestamp
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidSignature");
         });
@@ -523,11 +646,19 @@ describe("SimpleEigenContract", () => {
                 [
                     "uint8", 
                     "address", 
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
                     "uint256"
                 ],
                 [
                     Action.DELETE, 
-                    await user2.getAddress(), 
+                    await user2.getAddress(),
+                    nonce1.nonce,
+                    nonce1.blockNumber,
+                    nonce1.txNumber,
+                    nonce1.eventNumber,
                     blockTimestamp
                 ]
             );
@@ -549,6 +680,7 @@ describe("SimpleEigenContract", () => {
             const tx = await simpleEigenContract.connect(user3).deleteOperatorSig(
                 await user2.getAddress(), 
                 signature,
+                nonce1,
                 blockTimestamp
             );
             const receipt = await tx.wait();
@@ -578,11 +710,19 @@ describe("SimpleEigenContract", () => {
                 [
                     "uint8", 
                     "address", 
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
                     "uint256"
                 ],
                 [
                     Action.DELETE, 
-                    await user2.getAddress(), 
+                    await user2.getAddress(),
+                    nonce1.nonce,
+                    nonce1.blockNumber,
+                    nonce1.txNumber,
+                    nonce1.eventNumber,
                     blockTimestamp
                 ]
             );
@@ -604,6 +744,7 @@ describe("SimpleEigenContract", () => {
             await expect(simpleEigenContract.connect(user3).deleteOperatorSig(
                 await user2.getAddress(), 
                 signature,
+                nonce1,
                 blockTimestamp
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidTimestamp");
         });
@@ -617,11 +758,19 @@ describe("SimpleEigenContract", () => {
                 [
                     "uint8", 
                     "address", 
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
                     "uint256"
                 ],
                 [
                     Action.DELETE, 
-                    await user3.getAddress(), 
+                    await user3.getAddress(),
+                    nonce1.nonce,
+                    nonce1.blockNumber,
+                    nonce1.txNumber,
+                    nonce1.eventNumber,
                     blockTimestamp
                 ]
             );
@@ -645,6 +794,7 @@ describe("SimpleEigenContract", () => {
             await expect(simpleEigenContract.connect(user3).deleteOperatorSig(
                 await user3.getAddress(),
                 signature,
+                nonce1,
                 blockTimestamp
             ))
                 .to.be.revertedWithCustomError(simpleEigenContract, "SignatureExpired");
@@ -659,11 +809,19 @@ describe("SimpleEigenContract", () => {
                 [
                     "uint8", 
                     "address", 
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
                     "uint256"
                 ],
                 [
-                    Action.DELETE, 
-                    await user3.getAddress(), 
+                    Action.DELETE,
+                    await user3.getAddress(),
+                    nonce1.nonce,
+                    nonce1.blockNumber,
+                    nonce1.txNumber,
+                    nonce1.eventNumber,
                     blockTimestamp
                 ]
             );
@@ -685,6 +843,7 @@ describe("SimpleEigenContract", () => {
             await expect(simpleEigenContract.connect(user3).deleteOperatorSig(
                 await user3.getAddress(),
                 signature,
+                nonce1,
                 blockTimestamp
             ))
                 .to.be.revertedWithCustomError(simpleEigenContract, "InvalidSignature");
@@ -692,8 +851,13 @@ describe("SimpleEigenContract", () => {
 
         it("should update an operator", async () => {
             // Define your parameters
-            const socket = "127.0.0.1:8080";
-            const stakedAmount = ethers.parseEther("200"); // 100 ETH
+            const op = {
+                opAddress: await user2.getAddress(),
+                socket: "127.0.0.1:8080",
+                stakedAmount: ethers.parseEther("200"),
+                pubG1: encodedPair3G1,
+                pubG2: encodedPair3G2
+            }
             const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
 
             // Create the hash
@@ -707,17 +871,25 @@ describe("SimpleEigenContract", () => {
                     "uint256", 
                     "uint256[]", 
                     "uint256[]", 
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
                     "uint256"
                 ],
                 [
                     Action.UPDATE, 
-                    await user2.getAddress(), 
-                    socket, 
-                    stakedAmount, 
+                    op.opAddress,
+                    op.socket,
+                    op.stakedAmount,
                     encodedPair3G1.X, 
                     encodedPair3G1.Y, 
                     encodedPair3G2.X, 
-                    encodedPair3G2.Y, 
+                    encodedPair3G2.Y,
+                    nonce1.nonce,
+                    nonce1.blockNumber,
+                    nonce1.txNumber,
+                    nonce1.eventNumber,
                     blockTimestamp
                 ]
             );
@@ -737,12 +909,9 @@ describe("SimpleEigenContract", () => {
                 nonSignerIndices: []
             }
             const tx = await simpleEigenContract.connect(user3).updateOperatorSig(
-                await user2.getAddress(), 
-                socket, 
-                stakedAmount, 
-                encodedPair3G1, 
-                encodedPair3G2,
+                op,
                 signature,
+                nonce1,
                 blockTimestamp
             );
             const receipt = await tx.wait();
@@ -751,7 +920,7 @@ describe("SimpleEigenContract", () => {
             
             const operatorInfo = await simpleEigenContract.operatorInfos(2);
             expect(operatorInfo.opAddress).to.equal(await user2.getAddress());
-            expect(operatorInfo.stakedAmount).to.equal(stakedAmount);
+            expect(operatorInfo.stakedAmount).to.equal(op.stakedAmount);
             expect(operatorInfo.pubG1.X).to.equal(encodedPair3G1.X);
             expect(operatorInfo.pubG1.Y).to.equal(encodedPair3G1.Y);
             expect(operatorInfo.pubG2.X[0]).to.equal(encodedPair3G2.X[0]);
@@ -763,14 +932,19 @@ describe("SimpleEigenContract", () => {
             expect(totalStakedAmount).to.be.equal(initalStake1 + initalStake2);
             expect(apkTimestamp).to.be.equal(updateBlockTimestamp);
             const [apkTimestamp2, totalStakedAmount2] = await simpleEigenContract.getAggregatedG1History(g1PointToArgs(keyPair1.pubG1.add(keyPair3.pubG1)));
-            expect(totalStakedAmount2).to.be.equal(initalStake1 + stakedAmount);
+            expect(totalStakedAmount2).to.be.equal(initalStake1 + op.stakedAmount);
             expect(apkTimestamp2).to.be.equal(0);
         });
 
         it("should not allow update an operator with future signature", async () => {
             // Define your parameters
-            const socket = "127.0.0.1:8080";
-            const stakedAmount = ethers.parseEther("100"); // 100 ETH
+            const op = {
+                opAddress: await user2.getAddress(),
+                socket: "127.0.0.1:8080",
+                stakedAmount: ethers.parseEther("100"),
+                pubG1: encodedPair3G1,
+                pubG2: encodedPair3G2
+            }
             const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp + 1000;
 
             // Create the hash
@@ -784,17 +958,25 @@ describe("SimpleEigenContract", () => {
                     "uint256", 
                     "uint256[]", 
                     "uint256[]", 
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
                     "uint256"
                 ],
                 [
                     Action.UPDATE, 
-                    await user2.getAddress(), 
-                    socket, 
-                    stakedAmount, 
+                    op.opAddress,
+                    op.socket,
+                    op.stakedAmount,
                     encodedPair3G1.X, 
                     encodedPair3G1.Y, 
                     encodedPair3G2.X, 
-                    encodedPair3G2.Y, 
+                    encodedPair3G2.Y,
+                    nonce1.nonce,
+                    nonce1.blockNumber,
+                    nonce1.txNumber,
+                    nonce1.eventNumber,
                     blockTimestamp
                 ]
             );
@@ -814,20 +996,22 @@ describe("SimpleEigenContract", () => {
                 nonSignerIndices: []
             }
             await expect(simpleEigenContract.connect(user3).updateOperatorSig(
-                await user2.getAddress(), 
-                socket, 
-                stakedAmount, 
-                encodedPair3G1, 
-                encodedPair3G2,
+                op,
                 signature,
+                nonce1,
                 blockTimestamp
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidTimestamp");
         });
 
         it("should not allow update an operator with expired signature", async () => {
             // Define your parameters
-            const socket = "127.0.0.1:8080";
-            const stakedAmount = ethers.parseEther("100"); // 100 ETH
+            const op = {
+                opAddress: await user2.getAddress(),
+                socket: "127.0.0.1:8080",
+                stakedAmount: ethers.parseEther("100"),
+                pubG1: encodedPair3G1,
+                pubG2: encodedPair3G2
+            }
             const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
 
             // Create the hash
@@ -841,17 +1025,25 @@ describe("SimpleEigenContract", () => {
                     "uint256", 
                     "uint256[]", 
                     "uint256[]", 
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
                     "uint256"
                 ],
                 [
                     Action.ADD, 
-                    await user2.getAddress(), 
-                    socket, 
-                    stakedAmount, 
+                    op.opAddress,
+                    op.socket,
+                    op.stakedAmount,
                     encodedPair3G1.X, 
                     encodedPair3G1.Y, 
                     encodedPair3G2.X, 
-                    encodedPair3G2.Y, 
+                    encodedPair3G2.Y,
+                    nonce1.nonce,
+                    nonce1.blockNumber,
+                    nonce1.txNumber,
+                    nonce1.eventNumber,
                     blockTimestamp
                 ]
             );
@@ -873,20 +1065,22 @@ describe("SimpleEigenContract", () => {
             await ethers.provider.send("evm_increaseTime", [10 * 3600]);
             await ethers.provider.send("evm_mine");
             await expect(simpleEigenContract.connect(user3).updateOperatorSig(
-                await user2.getAddress(), 
-                socket, 
-                stakedAmount, 
-                encodedPair3G1, 
-                encodedPair3G2,
+                op,
                 signature,
+                nonce1,
                 blockTimestamp
             )).to.be.revertedWithCustomError(simpleEigenContract, "SignatureExpired");
         });
 
         it("should not allow update an operator with invalid signature", async () => {
             // Define your parameters
-            const socket = "127.0.0.1:8080";
-            const stakedAmount = ethers.parseEther("100"); // 100 ETH
+            const op = {
+                opAddress: await user2.getAddress(),
+                socket: "127.0.0.1:8080",
+                stakedAmount: ethers.parseEther("100"),
+                pubG1: encodedPair3G1,
+                pubG2: encodedPair3G2
+            }
             const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
 
             // Create the hash
@@ -900,17 +1094,25 @@ describe("SimpleEigenContract", () => {
                     "uint256", 
                     "uint256[]", 
                     "uint256[]", 
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
                     "uint256"
                 ],
                 [
                     Action.ADD, 
-                    await user2.getAddress(), 
-                    socket, 
-                    stakedAmount, 
+                    op.opAddress,
+                    op.socket,
+                    op.stakedAmount,
                     encodedPair3G1.X, 
                     encodedPair3G1.Y, 
                     encodedPair3G2.X, 
-                    encodedPair3G2.Y, 
+                    encodedPair3G2.Y,
+                    nonce1.nonce,
+                    nonce1.blockNumber,
+                    nonce1.txNumber,
+                    nonce1.eventNumber,
                     blockTimestamp
                 ]
             );
@@ -930,20 +1132,22 @@ describe("SimpleEigenContract", () => {
                 nonSignerIndices: []
             }
             await expect(simpleEigenContract.connect(user3).updateOperatorSig(
-                await user2.getAddress(), 
-                socket, 
-                stakedAmount, 
-                encodedPair3G1, 
-                encodedPair3G2,
+                op,
                 signature,
+                nonce1,
                 blockTimestamp
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidSignature");
         });
 
         it("should not allow update an operator with add signature", async () => {
             // Define your parameters
-            const socket = "127.0.0.1:8080";
-            const stakedAmount = ethers.parseEther("100"); // 100 ETH
+            const op = {
+                opAddress: await user2.getAddress(),
+                socket: "127.0.0.1:8080",
+                stakedAmount: ethers.parseEther("100"),
+                pubG1: encodedPair3G1,
+                pubG2: encodedPair3G2
+            }
             const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
 
             // Create the hash
@@ -957,17 +1161,25 @@ describe("SimpleEigenContract", () => {
                     "uint256", 
                     "uint256[]", 
                     "uint256[]", 
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
                     "uint256"
                 ],
                 [
                     Action.ADD, 
-                    await user2.getAddress(), 
-                    socket, 
-                    stakedAmount, 
+                    op.opAddress,
+                    op.socket,
+                    op.stakedAmount,
                     encodedPair3G1.X, 
                     encodedPair3G1.Y, 
                     encodedPair3G2.X, 
-                    encodedPair3G2.Y, 
+                    encodedPair3G2.Y,
+                    nonce1.nonce,
+                    nonce1.blockNumber,
+                    nonce1.txNumber,
+                    nonce1.eventNumber,
                     blockTimestamp
                 ]
             );
@@ -987,12 +1199,9 @@ describe("SimpleEigenContract", () => {
                 nonSignerIndices: []
             }
             await expect(simpleEigenContract.connect(user3).updateOperatorSig(
-                await user2.getAddress(), 
-                socket, 
-                stakedAmount, 
-                encodedPair3G1, 
-                encodedPair3G2,
+                op,
                 signature,
+                nonce1,
                 blockTimestamp
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidSignature");
         });
@@ -1005,15 +1214,24 @@ describe("SimpleEigenContract", () => {
             
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
-
-            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
+            const op1 = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair1.pubG1),
+                pubG2: g2PointToArgs(keyPair1.pubG2)
+            }
+            const op2 = {
+                opAddress: await user2.getAddress(),
+                socket: socket2,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair2.pubG1),
+                pubG2: g2PointToArgs(keyPair2.pubG2)
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
             
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1044,15 +1262,24 @@ describe("SimpleEigenContract", () => {
             
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
-
-            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
+            const op1 = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair1.pubG1),
+                pubG2: g2PointToArgs(keyPair1.pubG2)
+            }
+            const op2 = {
+                opAddress: await user2.getAddress(),
+                socket: socket2,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair2.pubG1),
+                pubG2: g2PointToArgs(keyPair2.pubG2)
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
             
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const invalidSignature: Signature = sign1.add(sign1);
@@ -1082,18 +1309,32 @@ describe("SimpleEigenContract", () => {
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-
-            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair3G1: BN254.G1PointStruct = g1PointToArgs(keyPair3.pubG1);
-            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
-            const encodedPair3G2: BN254.G2PointStruct = g2PointToArgs(keyPair3.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await admin.getAddress(), socket3, 1000, encodedPair3G1, encodedPair3G2);
+            const op1 = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair1.pubG1),
+                pubG2: g2PointToArgs(keyPair1.pubG2)
+            }
+            const op2 = {
+                opAddress: await user2.getAddress(),
+                socket: socket2,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair2.pubG1),
+                pubG2: g2PointToArgs(keyPair2.pubG2)
+            }
+            const op3 = {
+                opAddress: await user3.getAddress(),
+                socket: socket3,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair3.pubG1),
+                pubG2: g2PointToArgs(keyPair3.pubG2)
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
             
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1124,18 +1365,32 @@ describe("SimpleEigenContract", () => {
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-
-            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair3G1: BN254.G1PointStruct = g1PointToArgs(keyPair3.pubG1);
-            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
-            const encodedPair3G2: BN254.G2PointStruct = g2PointToArgs(keyPair3.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await admin.getAddress(), socket3, 1000, encodedPair3G1, encodedPair3G2);
+            const op1 = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair1.pubG1),
+                pubG2: g2PointToArgs(keyPair1.pubG2)
+            }
+            const op2 = {
+                opAddress: await user2.getAddress(),
+                socket: socket2,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair2.pubG1),
+                pubG2: g2PointToArgs(keyPair2.pubG2)
+            }
+            const op3 = {
+                opAddress: await user3.getAddress(),
+                socket: socket3,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair3.pubG1),
+                pubG2: g2PointToArgs(keyPair3.pubG2)
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
             
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1166,18 +1421,32 @@ describe("SimpleEigenContract", () => {
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-
-            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair3G1: BN254.G1PointStruct = g1PointToArgs(keyPair3.pubG1);
-            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
-            const encodedPair3G2: BN254.G2PointStruct = g2PointToArgs(keyPair3.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await admin.getAddress(), socket3, 1000, encodedPair3G1, encodedPair3G2);
+            const op1 = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair1.pubG1),
+                pubG2: g2PointToArgs(keyPair1.pubG2)
+            }
+            const op2 = {
+                opAddress: await user2.getAddress(),
+                socket: socket2,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair2.pubG1),
+                pubG2: g2PointToArgs(keyPair2.pubG2)
+            }
+            const op3 = {
+                opAddress: await user3.getAddress(),
+                socket: socket3,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair3.pubG1),
+                pubG2: g2PointToArgs(keyPair3.pubG2)
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
             
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1207,18 +1476,32 @@ describe("SimpleEigenContract", () => {
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-
-            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair3G1: BN254.G1PointStruct = g1PointToArgs(keyPair3.pubG1);
-            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
-            const encodedPair3G2: BN254.G2PointStruct = g2PointToArgs(keyPair3.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await admin.getAddress(), socket3, 1000, encodedPair3G1, encodedPair3G2);
+            const op1 = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair1.pubG1),
+                pubG2: g2PointToArgs(keyPair1.pubG2)
+            }
+            const op2 = {
+                opAddress: await user2.getAddress(),
+                socket: socket2,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair2.pubG1),
+                pubG2: g2PointToArgs(keyPair2.pubG2)
+            }
+            const op3 = {
+                opAddress: await user3.getAddress(),
+                socket: socket3,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair3.pubG1),
+                pubG2: g2PointToArgs(keyPair3.pubG2)
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
             
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1252,18 +1535,32 @@ describe("SimpleEigenContract", () => {
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-
-            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair3G1: BN254.G1PointStruct = g1PointToArgs(keyPair3.pubG1);
-            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
-            const encodedPair3G2: BN254.G2PointStruct = g2PointToArgs(keyPair3.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await admin.getAddress(), socket3, 1000, encodedPair3G1, encodedPair3G2);
+            const op1 = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair1.pubG1),
+                pubG2: g2PointToArgs(keyPair1.pubG2)
+            }
+            const op2 = {
+                opAddress: await user2.getAddress(),
+                socket: socket2,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair2.pubG1),
+                pubG2: g2PointToArgs(keyPair2.pubG2)
+            }
+            const op3 = {
+                opAddress: await user3.getAddress(),
+                socket: socket3,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair3.pubG1),
+                pubG2: g2PointToArgs(keyPair3.pubG2)
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
             
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const aggregatedSignature: Signature = sign1;
@@ -1292,15 +1589,24 @@ describe("SimpleEigenContract", () => {
             
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
-
-            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
+            const op1 = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair1.pubG1),
+                pubG2: g2PointToArgs(keyPair1.pubG2)
+            }
+            const op2 = {
+                opAddress: await user2.getAddress(),
+                socket: socket2,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair2.pubG1),
+                pubG2: g2PointToArgs(keyPair2.pubG2)
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
             
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1331,18 +1637,32 @@ describe("SimpleEigenContract", () => {
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-
-            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair3G1: BN254.G1PointStruct = g1PointToArgs(keyPair3.pubG1);
-            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
-            const encodedPair3G2: BN254.G2PointStruct = g2PointToArgs(keyPair3.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await admin.getAddress(), socket3, 1000, encodedPair3G1, encodedPair3G2);
+            const op1 = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair1.pubG1),
+                pubG2: g2PointToArgs(keyPair1.pubG2)
+            }
+            const op2 = {
+                opAddress: await user2.getAddress(),
+                socket: socket2,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair2.pubG1),
+                pubG2: g2PointToArgs(keyPair2.pubG2)
+            }
+            const op3 = {
+                opAddress: await user3.getAddress(),
+                socket: socket3,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair3.pubG1),
+                pubG2: g2PointToArgs(keyPair3.pubG2)
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
             
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1372,16 +1692,25 @@ describe("SimpleEigenContract", () => {
             
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
-
-            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
-            
+            const op1 = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair1.pubG1),
+                pubG2: g2PointToArgs(keyPair1.pubG2)
+            }
+            const op2 = {
+                opAddress: await user2.getAddress(),
+                socket: socket2,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair2.pubG1),
+                pubG2: g2PointToArgs(keyPair2.pubG2)
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
             const aggregatedSignature: Signature = sign1.add(sign2);
@@ -1417,16 +1746,25 @@ describe("SimpleEigenContract", () => {
             
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
-
-            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
-            
+            const op1 = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair1.pubG1),
+                pubG2: g2PointToArgs(keyPair1.pubG2)
+            }
+            const op2 = {
+                opAddress: await user2.getAddress(),
+                socket: socket2,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair2.pubG1),
+                pubG2: g2PointToArgs(keyPair2.pubG2)
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
             const aggregatedSignature: Signature = sign1.add(sign2);
@@ -1463,18 +1801,32 @@ describe("SimpleEigenContract", () => {
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-
-            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair3G1: BN254.G1PointStruct = g1PointToArgs(keyPair3.pubG1);
-            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
-            const encodedPair3G2: BN254.G2PointStruct = g2PointToArgs(keyPair3.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await admin.getAddress(), socket3, 1000, encodedPair3G1, encodedPair3G2);
+            const op1 = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair1.pubG1),
+                pubG2: g2PointToArgs(keyPair1.pubG2)
+            }
+            const op2 = {
+                opAddress: await user2.getAddress(),
+                socket: socket2,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair2.pubG1),
+                pubG2: g2PointToArgs(keyPair2.pubG2)
+            }
+            const op3 = {
+                opAddress: await user3.getAddress(),
+                socket: socket3,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair3.pubG1),
+                pubG2: g2PointToArgs(keyPair3.pubG2)
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
 
             // Set staking limit
             await simpleEigenContract.connect(staked_setter).setMinStakedLimit(2500);
@@ -1511,18 +1863,32 @@ describe("SimpleEigenContract", () => {
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-
-            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair3G1: BN254.G1PointStruct = g1PointToArgs(keyPair3.pubG1);
-            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
-            const encodedPair3G2: BN254.G2PointStruct = g2PointToArgs(keyPair3.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await admin.getAddress(), socket3, 1000, encodedPair3G1, encodedPair3G2);
+            const op1 = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair1.pubG1),
+                pubG2: g2PointToArgs(keyPair1.pubG2)
+            }
+            const op2 = {
+                opAddress: await user2.getAddress(),
+                socket: socket2,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair2.pubG1),
+                pubG2: g2PointToArgs(keyPair2.pubG2)
+            }
+            const op3 = {
+                opAddress: await user3.getAddress(),
+                socket: socket3,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair3.pubG1),
+                pubG2: g2PointToArgs(keyPair3.pubG2)
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
 
             // Set staking limit
             await simpleEigenContract.connect(staked_setter).setMinStakedLimit(2500);
@@ -1555,18 +1921,32 @@ describe("SimpleEigenContract", () => {
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-
-            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair3G1: BN254.G1PointStruct = g1PointToArgs(keyPair3.pubG1);
-            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
-            const encodedPair3G2: BN254.G2PointStruct = g2PointToArgs(keyPair3.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await admin.getAddress(), socket3, 1000, encodedPair3G1, encodedPair3G2);
+            const op1 = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair1.pubG1),
+                pubG2: g2PointToArgs(keyPair1.pubG2)
+            }
+            const op2 = {
+                opAddress: await user2.getAddress(),
+                socket: socket2,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair2.pubG1),
+                pubG2: g2PointToArgs(keyPair2.pubG2)
+            }
+            const op3 = {
+                opAddress: await user3.getAddress(),
+                socket: socket3,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair3.pubG1),
+                pubG2: g2PointToArgs(keyPair3.pubG2)
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
 
             // Set staking limit
             await simpleEigenContract.connect(staked_setter).setMinStakedLimit(1500);
@@ -1599,18 +1979,32 @@ describe("SimpleEigenContract", () => {
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-
-            const encodedPair1G1: BN254.G1PointStruct = g1PointToArgs(keyPair1.pubG1);
-            const encodedPair2G1: BN254.G1PointStruct = g1PointToArgs(keyPair2.pubG1);
-            const encodedPair3G1: BN254.G1PointStruct = g1PointToArgs(keyPair3.pubG1);
-            const encodedPair1G2: BN254.G2PointStruct = g2PointToArgs(keyPair1.pubG2);
-            const encodedPair2G2: BN254.G2PointStruct = g2PointToArgs(keyPair2.pubG2);
-            const encodedPair3G2: BN254.G2PointStruct = g2PointToArgs(keyPair3.pubG2);
             
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user1.getAddress(), socket1, 1000, encodedPair1G1, encodedPair1G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await user2.getAddress(), socket2, 1000, encodedPair2G1, encodedPair2G2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(await admin.getAddress(), socket3, 1000, encodedPair3G1, encodedPair3G2);
+            const op1 = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair1.pubG1),
+                pubG2: g2PointToArgs(keyPair1.pubG2)
+            }
+            const op2 = {
+                opAddress: await user2.getAddress(),
+                socket: socket2,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair2.pubG1),
+                pubG2: g2PointToArgs(keyPair2.pubG2)
+            }
+            const op3 = {
+                opAddress: await user3.getAddress(),
+                socket: socket3,
+                stakedAmount: 1000,
+                pubG1: g1PointToArgs(keyPair3.pubG1),
+                pubG2: g2PointToArgs(keyPair3.pubG2)
+            }
+            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
 
             // Set staking limit
             await simpleEigenContract.connect(staked_setter).setMinStakedLimit(1500);
@@ -1644,7 +2038,14 @@ describe("SimpleEigenContract", () => {
         });
 
         it("should only allow DAO to add operators", async () => {
-            await expect(simpleEigenContract.connect(user1).addOperatorDAO(await user2.getAddress(), socket1, 1000, mockG1Point, mockG2Point))
+            const op = {
+                opAddress: await user2.getAddress(),
+                socket: socket1,
+                stakedAmount: 1000,
+                pubG1: mockG1Point,
+                pubG2: mockG2Point
+            }
+            await expect(simpleEigenContract.connect(user1).addOperatorDAO(op))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
         });
 
@@ -1654,7 +2055,14 @@ describe("SimpleEigenContract", () => {
         });
 
         it("should only allow DAO to update operators", async () => {
-            await expect(simpleEigenContract.connect(user1).updateOperatorDAO(await user1.getAddress(), socket1, 2000, mockG1Point, mockG2Point))
+            const op = {
+                opAddress: await user1.getAddress(),
+                socket: socket1,
+                stakedAmount: 2000,
+                pubG1: mockG1Point,
+                pubG2: mockG2Point
+            }
+            await expect(simpleEigenContract.connect(user1).updateOperatorDAO(op))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
         });
     });

@@ -22,6 +22,8 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
     uint256 public signatureValidityPeriod;
     /// @notice Duration for which an APK is considered valid
     uint256 public apkValidityPeriod;
+    /// @notice The last nonce used to add, delete, or update OPs
+    SynchronizationNonce lastNonce;
     /// @notice Current aggregated G1 point
     BN254.G1Point public aggregatedG1;
     /// @notice Total amount staked by all operators
@@ -61,13 +63,9 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
 
     /// @inheritdoc ISimpleEigenContract
     function addOperatorDAO(
-        address opAddress_,
-        string calldata socket_,
-        uint256 stakedAmount_,
-        BN254.G1Point calldata pubG1_,
-        BN254.G2Point calldata pubG2_
+        Operator calldata op_
     ) public override onlyRole(DAO_ROLE) {
-        _addOperator(opAddress_, socket_, stakedAmount_, pubG1_, pubG2_);
+        _addOperator(op_);
     }
 
     /// @inheritdoc ISimpleEigenContract
@@ -77,23 +75,16 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
 
     /// @inheritdoc ISimpleEigenContract
     function updateOperatorDAO(
-        address opAddress_,
-        string calldata socket_,
-        uint256 stakedAmount_,
-        BN254.G1Point calldata pubG1_,
-        BN254.G2Point calldata pubG2_
+        Operator calldata op_
     ) public override onlyRole(DAO_ROLE) {
-        _updateOperator(opAddress_, socket_, stakedAmount_, pubG1_, pubG2_);
+        _updateOperator(op_);
     }
 
     /// @inheritdoc ISimpleEigenContract
     function addOperatorSig(
-        address opAddress_,
-        string calldata socket_,
-        uint256 stakedAmount_,
-        BN254.G1Point calldata pubG1_,
-        BN254.G2Point calldata pubG2_,
+        Operator calldata op_,
         Signature memory signature_,
+        SynchronizationNonce calldata nonce_,
         uint256 sigTimestamp_
     ) public override {
         if (sigTimestamp_ > block.timestamp) {
@@ -102,19 +93,38 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         if (block.timestamp - sigTimestamp_ > signatureValidityPeriod) {
             revert SignatureExpired();
         }
-        bytes32 _hash = keccak256(abi.encodePacked(Action.Add, opAddress_, socket_, stakedAmount_, pubG1_.X, pubG1_.Y, pubG2_.X, pubG2_.Y, sigTimestamp_));
+        if (nonce_.nonce != lastNonce.nonce + 1 || nonce_.blockNumber < lastNonce.blockNumber){
+            revert InvalidNonce();
+        }
+        bytes32 _hash = keccak256(abi.encodePacked(
+            Action.Add,
+            op_.opAddress,
+            op_.socket,
+            op_.stakedAmount,
+            op_.pubG1.X,
+            op_.pubG1.Y,
+            op_.pubG2.X,
+            op_.pubG2.Y,
+            nonce_.nonce,
+            nonce_.blockNumber,
+            nonce_.txNumber,
+            nonce_.eventNumber,
+            sigTimestamp_
+        ));
         bool siganatureIsValid;
         (, siganatureIsValid) = verifySignature(_hash, signature_);
         if (siganatureIsValid == false) {
             revert InvalidSignature();
         }
-        _addOperator(opAddress_, socket_, stakedAmount_, pubG1_, pubG2_);
+        lastNonce = nonce_;
+        _addOperator(op_);
     }
 
     /// @inheritdoc ISimpleEigenContract
     function deleteOperatorSig(
         address opAddress_,
         Signature memory signature_,
+        SynchronizationNonce calldata nonce_,
         uint256 sigTimestamp_
     ) public override {
         if (sigTimestamp_ > block.timestamp) {
@@ -123,23 +133,32 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         if (block.timestamp - sigTimestamp_ > signatureValidityPeriod) {
             revert SignatureExpired();
         }
-        bytes32 _hash = keccak256(abi.encodePacked(Action.Delete, opAddress_, sigTimestamp_));
+        if (nonce_.nonce != lastNonce.nonce + 1 || nonce_.blockNumber < lastNonce.blockNumber){
+            revert InvalidNonce();
+        }
+        bytes32 _hash = keccak256(abi.encodePacked(
+            Action.Delete,
+            opAddress_,
+            nonce_.nonce,
+            nonce_.blockNumber,
+            nonce_.txNumber,
+            nonce_.eventNumber,
+            sigTimestamp_
+        ));
         bool siganatureIsValid;
         (, siganatureIsValid) = verifySignature(_hash, signature_);
         if (siganatureIsValid == false) {
             revert InvalidSignature();
         }
+        lastNonce = nonce_;
         _deleteOperator(opAddress_);
     }
 
     /// @inheritdoc ISimpleEigenContract
     function updateOperatorSig(
-        address opAddress_,
-        string calldata socket_,
-        uint256 stakedAmount_,
-        BN254.G1Point calldata pubG1_,
-        BN254.G2Point calldata pubG2_,
+        Operator calldata op_,
         Signature memory signature_,
+        SynchronizationNonce calldata nonce_,
         uint256 sigTimestamp_
     ) public override {
         if (sigTimestamp_ > block.timestamp) {
@@ -148,13 +167,28 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         if (block.timestamp - sigTimestamp_ > signatureValidityPeriod) {
             revert SignatureExpired();
         }
-        bytes32 _hash = keccak256(abi.encodePacked(Action.Update, opAddress_, socket_, stakedAmount_, pubG1_.X, pubG1_.Y, pubG2_.X, pubG2_.Y, sigTimestamp_));
+        bytes32 _hash = keccak256(abi.encodePacked(
+            Action.Update,
+            op_.opAddress,
+            op_.socket,
+            op_.stakedAmount,
+            op_.pubG1.X,
+            op_.pubG1.Y,
+            op_.pubG2.X,
+            op_.pubG2.Y,
+            nonce_.nonce,
+            nonce_.blockNumber,
+            nonce_.txNumber,
+            nonce_.eventNumber,
+            sigTimestamp_
+        ));
         bool siganatureIsValid;
         (, siganatureIsValid) = verifySignature(_hash,signature_);
         if (siganatureIsValid == false) {
             revert InvalidSignature();
         }
-        _updateOperator(opAddress_, socket_, stakedAmount_, pubG1_, pubG2_);
+        lastNonce = nonce_;
+        _updateOperator(op_);
     }
 
     /// @inheritdoc ISimpleEigenContract
@@ -247,23 +281,19 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
     }
 
     /// @notice Add a new operator
-    /// @param opAddress_ Address of the operator
-    /// @param socket_ Socket of the operator
-    /// @param stakedAmount_ Staked amount by the operator
-    /// @param pubG1_ Public G1 point of the operator
-    /// @param pubG2_ Public G2 point of the operator
-    function _addOperator(address opAddress_, string calldata socket_, uint256 stakedAmount_, BN254.G1Point calldata pubG1_, BN254.G2Point calldata pubG2_) internal {
-        if (address2Index[opAddress_] != 0) {
+    /// @param op_ The Operator to be added
+    function _addOperator(Operator calldata op_) internal {
+        if (address2Index[op_.opAddress] != 0) {
             revert OperatorAlreadyAdded();
         }
         lastIndex = lastIndex + 1;
-        operatorInfos[lastIndex] = Operator(opAddress_, socket_, stakedAmount_, pubG1_, pubG2_);
-        address2Index[opAddress_] = lastIndex;
+        operatorInfos[lastIndex] = Operator(op_.opAddress, op_.socket, op_.stakedAmount, op_.pubG1, op_.pubG2);
+        address2Index[op_.opAddress] = lastIndex;
         setAggregatedG1History(aggregatedG1, block.timestamp, totalStaked);
-        aggregatedG1 = aggregatedG1.plus(pubG1_);
-        totalStaked += stakedAmount_;
+        aggregatedG1 = aggregatedG1.plus(op_.pubG1);
+        totalStaked += op_.stakedAmount;
         setAggregatedG1History(aggregatedG1, 0, totalStaked);
-        emit OperatorAdded(lastIndex, opAddress_, stakedAmount_, pubG1_, pubG2_);
+        emit OperatorAdded(lastIndex, op_.opAddress, op_.socket, op_.stakedAmount, op_.pubG1, op_.pubG2);
     }
 
     /// @notice Delete an existing operator
@@ -283,26 +313,19 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
     }
 
     /// @notice Update an existing operator
-    /// @param opAddress_ Address of the operator to be updated
-    /// @param socket_ Socket of the operator
-    /// @param stakedAmount_ New staked amount by the operator
-    /// @param pubG1_ New public G1 point of the operator
-    /// @param pubG2_ New public G2 point of the operator
-    function _updateOperator(address opAddress_, string calldata socket_, uint256 stakedAmount_, BN254.G1Point calldata pubG1_, BN254.G2Point calldata pubG2_) internal {
-        uint32 index = address2Index[opAddress_];
+    /// @param op_ The Operator to be updated
+    function _updateOperator(Operator calldata op_) internal {
+        uint32 index = address2Index[op_.opAddress];
         if (index == 0) {
             revert OperatorNotExisted();
         }
         setAggregatedG1History(aggregatedG1, block.timestamp, totalStaked);
         aggregatedG1 = aggregatedG1.plus(operatorInfos[index].pubG1.negate());
         totalStaked -= operatorInfos[index].stakedAmount;
-        operatorInfos[index].stakedAmount = stakedAmount_;
-        operatorInfos[index].socket = socket_;
-        operatorInfos[index].pubG1 = pubG1_;
-        operatorInfos[index].pubG2 = pubG2_;
-        aggregatedG1 = aggregatedG1.plus(pubG1_);
-        totalStaked += stakedAmount_;
+        operatorInfos[index] = op_;
+        aggregatedG1 = aggregatedG1.plus(op_.pubG1);
+        totalStaked += op_.stakedAmount;
         setAggregatedG1History(aggregatedG1, 0, totalStaked);
-        emit OperatorUpdated(index, opAddress_, stakedAmount_, pubG1_, pubG2_);
+        emit OperatorUpdated(index, op_.opAddress, op_.socket, op_.stakedAmount, op_.pubG1, op_.pubG2);
     }
 }
