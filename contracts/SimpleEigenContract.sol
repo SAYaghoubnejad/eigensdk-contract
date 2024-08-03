@@ -93,7 +93,7 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         if (block.timestamp - sigTimestamp_ > signatureValidityPeriod) {
             revert SignatureExpired();
         }
-        if (nonce_.nonce != lastNonce.nonce + 1 || nonce_.blockNumber < lastNonce.blockNumber){
+        if (nonce_.nonce != lastNonce.nonce + 1 || nonce_.blockNumber < lastNonce.blockNumber) {
             revert InvalidNonce();
         }
         bytes32 _hash = keccak256(abi.encodePacked(
@@ -133,7 +133,7 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         if (block.timestamp - sigTimestamp_ > signatureValidityPeriod) {
             revert SignatureExpired();
         }
-        if (nonce_.nonce != lastNonce.nonce + 1 || nonce_.blockNumber < lastNonce.blockNumber){
+        if (nonce_.nonce != lastNonce.nonce + 1 || nonce_.blockNumber < lastNonce.blockNumber) {
             revert InvalidNonce();
         }
         bytes32 _hash = keccak256(abi.encodePacked(
@@ -167,6 +167,9 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         if (block.timestamp - sigTimestamp_ > signatureValidityPeriod) {
             revert SignatureExpired();
         }
+        if (nonce_.nonce != lastNonce.nonce + 1 || nonce_.blockNumber < lastNonce.blockNumber) {
+            revert InvalidNonce();
+        }
         bytes32 _hash = keccak256(abi.encodePacked(
             Action.Update,
             op_.opAddress,
@@ -183,7 +186,7 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
             sigTimestamp_
         ));
         bool siganatureIsValid;
-        (, siganatureIsValid) = verifySignature(_hash,signature_);
+        (, siganatureIsValid) = verifySignature(_hash, signature_);
         if (siganatureIsValid == false) {
             revert InvalidSignature();
         }
@@ -210,18 +213,18 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         Signature memory signature_
     ) public view override returns (bool pairingSuccessful, bool signatureIsValid) {
         (uint256 apkTimestamp, uint256 stakedAmount) = getAggregatedG1History(signature_.apkG1);
-        if (apkTimestamp != 0 && block.timestamp - apkTimestamp > apkValidityPeriod){
+        if (apkTimestamp != 0 && block.timestamp - apkTimestamp > apkValidityPeriod) {
             revert ExpiredAPK();
         }
 
         if (signature_.nonSignerIndices.length != 0) {
-            if (signature_.nonSignerIndices[0] == 0 || operatorInfos[signature_.nonSignerIndices[0]].opAddress == address(0)){
+            if (signature_.nonSignerIndices[0] == 0 || operatorInfos[signature_.nonSignerIndices[0]].opAddress == address(0)) {
                 revert InvalidOperatorIndex();
             }
             BN254.G1Point memory apk = operatorInfos[signature_.nonSignerIndices[0]].pubG1;
             stakedAmount -= operatorInfos[signature_.nonSignerIndices[0]].stakedAmount;
             for (uint32 i = 1; i < signature_.nonSignerIndices.length; i++) {
-                if (signature_.nonSignerIndices[i] == 0 || operatorInfos[signature_.nonSignerIndices[i]].opAddress == address(0)){
+                if (signature_.nonSignerIndices[i] == 0 || operatorInfos[signature_.nonSignerIndices[i]].opAddress == address(0)) {
                     revert InvalidOperatorIndex();
                 }
                 apk = apk.plus(operatorInfos[signature_.nonSignerIndices[i]].pubG1);
@@ -230,7 +233,7 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
             signature_.apkG1 = signature_.apkG1.plus(apk.negate());
         }
 
-        if (stakedAmount < minStakedLimit){
+        if (stakedAmount < minStakedLimit) {
             revert InsufficientStaked();
         }
         return _trySignatureAndApkVerification(msgHash_, signature_.apkG1, signature_.apkG2, signature_.sigma);

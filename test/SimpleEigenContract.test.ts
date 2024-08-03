@@ -1,17 +1,17 @@
-import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import { ethers, upgrades } from "hardhat";
-import { expect } from "chai";
-import { SimpleEigenContract } from "../typechain-types";
-import { ZeroAddress } from "ethers";
-import { 
+import {SignerWithAddress} from "@nomicfoundation/hardhat-ethers/signers";
+import {ethers, upgrades} from "hardhat";
+import {expect} from "chai";
+import {SimpleEigenContract} from "../typechain-types";
+import {ZeroAddress} from "ethers";
+import {
     init as attestationInit,
     KeyPair,
-    G1Point,  
-    G2Point, 
-    Signature 
+    G1Point,
+    G2Point,
+    Signature
 } from '../eigensdk-js/src/crypto/bls/attestation';
-import { g1PointToArgs, g2PointToArgs} from '../eigensdk-js/src/utils/helpers';
-import { BN254, ISimpleEigenContract } from '../typechain-types/contracts/SimpleEigenContract';
+import {g1PointToArgs, g2PointToArgs} from '../eigensdk-js/src/utils/helpers';
+import {BN254, ISimpleEigenContract} from '../typechain-types/contracts/SimpleEigenContract';
 
 describe("SimpleEigenContract", () => {
     let simpleEigenContract: SimpleEigenContract;
@@ -59,32 +59,32 @@ describe("SimpleEigenContract", () => {
             const aggregatedG1 = await simpleEigenContract.aggregatedG1();
             expect(aggregatedG1.X).to.equal(0);
             expect(aggregatedG1.Y).to.equal(0);
-      
+
             const totalStaked = await simpleEigenContract.totalStaked();
             expect(totalStaked).to.equal(0);
-      
+
             const minStakedLimit = await simpleEigenContract.minStakedLimit();
             expect(minStakedLimit).to.equal(0);
-      
+
             const signatureValidityPeriod = await simpleEigenContract.signatureValidityPeriod();
             expect(signatureValidityPeriod).to.equal(5 * 60); // 5 minutes in seconds
-      
+
             const apkValidityPeriod = await simpleEigenContract.apkValidityPeriod();
             expect(apkValidityPeriod).to.equal(5 * 60); // 5 minutes in seconds
-          });
-      
-          it("Should set initial aggregatedG1History and totalStakedHistoryHistory correctly", async function () {
-            const zeroPoint = { X: 0, Y: 0 };
+        });
+
+        it("Should set initial aggregatedG1History and totalStakedHistoryHistory correctly", async function () {
+            const zeroPoint = {X: 0, Y: 0};
             const [timestamp, staked] = await simpleEigenContract.getAggregatedG1History(zeroPoint);
             expect(timestamp).to.equal(0);
             expect(staked).to.equal(0);
-          });
+        });
 
-      
-          it("Should revert when trying to initialize again", async function () {
+
+        it("Should revert when trying to initialize again", async function () {
             await expect(simpleEigenContract.initialize(user1.address))
-              .to.be.revertedWith("Initializable: contract is already initialized");
-          });
+                .to.be.revertedWith("Initializable: contract is already initialized");
+        });
     });
 
     describe("Operator Management by DAO", () => {
@@ -106,7 +106,7 @@ describe("SimpleEigenContract", () => {
                 pubG2: mockG2Point
             }
             await simpleEigenContract.connect(dao).addOperatorDAO(op);
-            
+
             const operatorInfo = await simpleEigenContract.operatorInfos(1);
             expect(operatorInfo.opAddress).to.equal(await user1.getAddress());
             expect(operatorInfo.stakedAmount).to.equal(1000);
@@ -149,9 +149,9 @@ describe("SimpleEigenContract", () => {
             await simpleEigenContract.connect(dao).addOperatorDAO(op);
             const tx = await simpleEigenContract.connect(dao).deleteOperatorDAO(await user1.getAddress());
             const receipt = await tx.wait();
-            const block = await ethers.provider.getBlock(receipt.blockNumber);
-            const deleteBlockTimestamp = block.timestamp;
-            
+            const block = await ethers.provider.getBlock(receipt!.blockNumber);
+            const deleteBlockTimestamp = block!.timestamp;
+
             const operatorInfo = await simpleEigenContract.operatorInfos(1);
             expect(operatorInfo.opAddress).to.equal(ZeroAddress);
             const operatorIndex = await simpleEigenContract.address2Index(await user1.getAddress());
@@ -176,7 +176,7 @@ describe("SimpleEigenContract", () => {
                 pubG2: mockG2Point
             }
             await simpleEigenContract.connect(dao).addOperatorDAO(op);
-            
+
             const newKeyPair = KeyPair.fromString("04");
             const newG1Point: BN254.G1PointStruct = g1PointToArgs(newKeyPair.pubG1);
             const newG2Point: BN254.G2PointStruct = g2PointToArgs(newKeyPair.pubG2);
@@ -189,9 +189,9 @@ describe("SimpleEigenContract", () => {
             }
             const tx = await simpleEigenContract.connect(dao).updateOperatorDAO(newOp);
             const receipt = await tx.wait();
-            const block = await ethers.provider.getBlock(receipt.blockNumber);
-            const updateBlockTimestamp = block.timestamp;
-            
+            const block = await ethers.provider.getBlock(receipt!.blockNumber);
+            const updateBlockTimestamp = block!.timestamp;
+
             const operatorInfo = await simpleEigenContract.operatorInfos(1);
             expect(operatorInfo.stakedAmount).to.equal(2000);
             expect(operatorInfo.pubG1.X).to.equal(newG1Point.X);
@@ -234,7 +234,7 @@ describe("SimpleEigenContract", () => {
         let op1: ISimpleEigenContract.OperatorStruct, op2: ISimpleEigenContract.OperatorStruct;
         let nonce1: ISimpleEigenContract.SynchronizationNonceStruct;
 
-        const Action = { ADD: 0, DELETE: 1, UPDATE: 2 };
+        const Action = {ADD: 0, DELETE: 1, UPDATE: 2};
 
         let initalStake1: bigint, initalStake2: bigint;
 
@@ -251,7 +251,7 @@ describe("SimpleEigenContract", () => {
             encodedPair3G2 = g2PointToArgs(keyPair3.pubG2);
 
             initalStake1 = ethers.parseEther("10"); // 100 ETH
-            initalStake2= ethers.parseEther("30"); // 100 ETH
+            initalStake2 = ethers.parseEther("30"); // 100 ETH
 
             let op1 = {
                 opAddress: await user1.getAddress(),
@@ -273,7 +273,7 @@ describe("SimpleEigenContract", () => {
             await simpleEigenContract.connect(dao).addOperatorDAO(op2);
             nonce1 = {
                 nonce: 1,
-                blockNumber: (await ethers.provider.getBlock("latest")).number,
+                blockNumber: (await ethers.provider.getBlock("latest"))!.number,
                 txNumber: 1,
                 eventNumber: 1
             }
@@ -288,19 +288,19 @@ describe("SimpleEigenContract", () => {
                 pubG1: encodedPair3G1,
                 pubG2: encodedPair3G2
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
                 [
-                    "uint8", 
-                    "address", 
-                    "string", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256[]", 
-                    "uint256[]", 
+                    "uint8",
+                    "address",
+                    "string",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256[]",
+                    "uint256[]",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -308,13 +308,13 @@ describe("SimpleEigenContract", () => {
                     "uint256"
                 ],
                 [
-                    Action.ADD, 
+                    Action.ADD,
                     op.opAddress,
                     op.socket,
                     op.stakedAmount,
-                    encodedPair3G1.X, 
-                    encodedPair3G1.Y, 
-                    encodedPair3G2.X, 
+                    encodedPair3G1.X,
+                    encodedPair3G1.Y,
+                    encodedPair3G2.X,
                     encodedPair3G2.Y,
                     nonce1.nonce,
                     nonce1.blockNumber,
@@ -345,9 +345,9 @@ describe("SimpleEigenContract", () => {
                 blockTimestamp
             );
             const receipt = await tx.wait();
-            const block = await ethers.provider.getBlock(receipt.blockNumber);
-            const addBlockTimestamp = block.timestamp;
-            
+            const block = await ethers.provider.getBlock(receipt!.blockNumber);
+            const addBlockTimestamp = block!.timestamp;
+
             const operatorInfo = await simpleEigenContract.operatorInfos(3);
             expect(operatorInfo.opAddress).to.equal(await user3.getAddress());
             expect(operatorInfo.stakedAmount).to.equal(op.stakedAmount);
@@ -357,7 +357,7 @@ describe("SimpleEigenContract", () => {
             expect(operatorInfo.pubG2.Y[0]).to.equal(encodedPair3G2.Y[0]);
             expect(operatorInfo.pubG2.X[1]).to.equal(encodedPair3G2.X[1]);
             expect(operatorInfo.pubG2.Y[1]).to.equal(encodedPair3G2.Y[1]);
-            
+
             const [apkTimestamp, totaSstakedAmount] = await simpleEigenContract.getAggregatedG1History(g1PointToArgs(aggregatedPubG1));
             expect(totaSstakedAmount).to.be.equal(initalStake1 + initalStake2);
             expect(apkTimestamp).to.be.equal(addBlockTimestamp);
@@ -376,19 +376,19 @@ describe("SimpleEigenContract", () => {
                 pubG1: encodedPair3G1,
                 pubG2: encodedPair3G2
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp + 1000;
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp + 1000;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
                 [
-                    "uint8", 
-                    "address", 
-                    "string", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256[]", 
-                    "uint256[]", 
+                    "uint8",
+                    "address",
+                    "string",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256[]",
+                    "uint256[]",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -396,13 +396,13 @@ describe("SimpleEigenContract", () => {
                     "uint256"
                 ],
                 [
-                    Action.ADD, 
+                    Action.ADD,
                     op.opAddress,
                     op.socket,
                     op.stakedAmount,
-                    encodedPair3G1.X, 
-                    encodedPair3G1.Y, 
-                    encodedPair3G2.X, 
+                    encodedPair3G1.X,
+                    encodedPair3G1.Y,
+                    encodedPair3G2.X,
                     encodedPair3G2.Y,
                     nonce1.nonce,
                     nonce1.blockNumber,
@@ -420,7 +420,7 @@ describe("SimpleEigenContract", () => {
 
             expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -434,6 +434,79 @@ describe("SimpleEigenContract", () => {
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidTimestamp");
         });
 
+        it("should not allow add an operator with out of order nonce", async () => {
+            // Define your parameters
+            const op = {
+                opAddress: await user3.getAddress(),
+                socket: "127.0.0.1:8080",
+                stakedAmount: ethers.parseEther("100"),
+                pubG1: encodedPair3G1,
+                pubG2: encodedPair3G2
+            }
+            const nonce2 = {
+                nonce: 2,
+                blockNumber: (await ethers.provider.getBlock("latest"))!.number,
+                txNumber: 1,
+                eventNumber: 1
+            }
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
+
+            // Create the hash
+            const msgHash = ethers.solidityPackedKeccak256(
+                [
+                    "uint8",
+                    "address",
+                    "string",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256[]",
+                    "uint256[]",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256"
+                ],
+                [
+                    Action.ADD,
+                    op.opAddress,
+                    op.socket,
+                    op.stakedAmount,
+                    encodedPair3G1.X,
+                    encodedPair3G1.Y,
+                    encodedPair3G2.X,
+                    encodedPair3G2.Y,
+                    nonce2.nonce,
+                    nonce2.blockNumber,
+                    nonce2.txNumber,
+                    nonce2.eventNumber,
+                    blockTimestamp
+                ]
+            );
+
+            const sign1: Signature = keyPair1.signMessage(msgHash);
+            const sign2: Signature = keyPair2.signMessage(msgHash);
+            const aggregatedSignature: Signature = sign1.add(sign2);
+            const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
+            const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
+
+            expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification
+
+            const signature: ISimpleEigenContract.SignatureStruct = {
+                apkG1: g1PointToArgs(aggregatedPubG1),
+                apkG2: g2PointToArgs(aggregatedPubG2),
+                sigma: g1PointToArgs(aggregatedSignature),
+                nonSignerIndices: []
+            }
+            await expect(simpleEigenContract.connect(user3).addOperatorSig(
+                op,
+                signature,
+                nonce2,
+                blockTimestamp
+            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidNonce");
+        });
+
         it("should not allow add an operator with update signature", async () => {
             // Define your parameters
             const op = {
@@ -443,18 +516,18 @@ describe("SimpleEigenContract", () => {
                 pubG1: encodedPair3G1,
                 pubG2: encodedPair3G2
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
                 [
-                    "uint8", 
-                    "address", 
-                    "string", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256[]", 
+                    "uint8",
+                    "address",
+                    "string",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256[]",
                     "uint256[]",
                     "uint256",
                     "uint256",
@@ -463,13 +536,13 @@ describe("SimpleEigenContract", () => {
                     "uint256"
                 ],
                 [
-                    Action.UPDATE, 
+                    Action.UPDATE,
                     op.opAddress,
                     op.socket,
                     op.stakedAmount,
-                    encodedPair3G1.X, 
-                    encodedPair3G1.Y, 
-                    encodedPair3G2.X, 
+                    encodedPair3G1.X,
+                    encodedPair3G1.Y,
+                    encodedPair3G2.X,
                     encodedPair3G2.Y,
                     nonce1.nonce,
                     nonce1.blockNumber,
@@ -487,7 +560,7 @@ describe("SimpleEigenContract", () => {
 
             expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -510,18 +583,18 @@ describe("SimpleEigenContract", () => {
                 pubG1: encodedPair3G1,
                 pubG2: encodedPair3G2
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
                 [
-                    "uint8", 
-                    "address", 
-                    "string", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256[]", 
+                    "uint8",
+                    "address",
+                    "string",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256[]",
                     "uint256[]",
                     "uint256",
                     "uint256",
@@ -530,13 +603,13 @@ describe("SimpleEigenContract", () => {
                     "uint256"
                 ],
                 [
-                    Action.ADD, 
+                    Action.ADD,
                     op.opAddress,
                     op.socket,
                     op.stakedAmount,
-                    encodedPair3G1.X, 
-                    encodedPair3G1.Y, 
-                    encodedPair3G2.X, 
+                    encodedPair3G1.X,
+                    encodedPair3G1.Y,
+                    encodedPair3G2.X,
                     encodedPair3G2.Y,
                     nonce1.nonce,
                     nonce1.blockNumber,
@@ -554,7 +627,7 @@ describe("SimpleEigenContract", () => {
 
             expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -579,19 +652,19 @@ describe("SimpleEigenContract", () => {
                 pubG1: encodedPair3G1,
                 pubG2: encodedPair3G2
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
                 [
-                    "uint8", 
-                    "address", 
-                    "string", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256[]", 
-                    "uint256[]", 
+                    "uint8",
+                    "address",
+                    "string",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256[]",
+                    "uint256[]",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -599,13 +672,13 @@ describe("SimpleEigenContract", () => {
                     "uint256"
                 ],
                 [
-                    Action.ADD, 
+                    Action.ADD,
                     op.opAddress,
                     op.socket,
                     op.stakedAmount,
-                    encodedPair3G1.X, 
-                    encodedPair3G1.Y, 
-                    encodedPair3G2.X, 
+                    encodedPair3G1.X,
+                    encodedPair3G1.Y,
+                    encodedPair3G2.X,
                     encodedPair3G2.Y,
                     nonce1.nonce,
                     nonce1.blockNumber,
@@ -623,7 +696,7 @@ describe("SimpleEigenContract", () => {
 
             expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -639,13 +712,13 @@ describe("SimpleEigenContract", () => {
 
         it("should delete an operator", async () => {
             // Define your parameters
-            const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
                 [
-                    "uint8", 
-                    "address", 
+                    "uint8",
+                    "address",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -653,7 +726,7 @@ describe("SimpleEigenContract", () => {
                     "uint256"
                 ],
                 [
-                    Action.DELETE, 
+                    Action.DELETE,
                     await user2.getAddress(),
                     nonce1.nonce,
                     nonce1.blockNumber,
@@ -671,22 +744,22 @@ describe("SimpleEigenContract", () => {
 
             expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
             const tx = await simpleEigenContract.connect(user3).deleteOperatorSig(
-                await user2.getAddress(), 
+                await user2.getAddress(),
                 signature,
                 nonce1,
                 blockTimestamp
             );
             const receipt = await tx.wait();
-            const block = await ethers.provider.getBlock(receipt.blockNumber);
-            const deleteBlockTimestamp = block.timestamp;
-            
+            const block = await ethers.provider.getBlock(receipt!.blockNumber);
+            const deleteBlockTimestamp = block!.timestamp;
+
             const operatorInfo = await simpleEigenContract.operatorInfos(2);
             expect(operatorInfo.opAddress).to.equal(ZeroAddress);
             const operatorIndex = await simpleEigenContract.address2Index(await user2.getAddress());
@@ -703,13 +776,13 @@ describe("SimpleEigenContract", () => {
 
         it("should not allow delete an operator with future signature", async () => {
             // Define your parameters
-            const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp + 1000;
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp + 1000;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
                 [
-                    "uint8", 
-                    "address", 
+                    "uint8",
+                    "address",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -717,7 +790,7 @@ describe("SimpleEigenContract", () => {
                     "uint256"
                 ],
                 [
-                    Action.DELETE, 
+                    Action.DELETE,
                     await user2.getAddress(),
                     nonce1.nonce,
                     nonce1.blockNumber,
@@ -735,29 +808,35 @@ describe("SimpleEigenContract", () => {
 
             expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
             await expect(simpleEigenContract.connect(user3).deleteOperatorSig(
-                await user2.getAddress(), 
+                await user2.getAddress(),
                 signature,
                 nonce1,
                 blockTimestamp
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidTimestamp");
         });
 
-        it("should not allow delete with expired signature", async () => {
+        it("should not allow delete an operator with out of order nonce", async () => {
             // Define your parameters
-            const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
+            const nonce2 = {
+                nonce: 2,
+                blockNumber: (await ethers.provider.getBlock("latest"))!.number,
+                txNumber: 1,
+                eventNumber: 1
+            }
             const msgHash = ethers.solidityPackedKeccak256(
                 [
-                    "uint8", 
-                    "address", 
+                    "uint8",
+                    "address",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -765,7 +844,55 @@ describe("SimpleEigenContract", () => {
                     "uint256"
                 ],
                 [
-                    Action.DELETE, 
+                    Action.DELETE,
+                    await user2.getAddress(),
+                    nonce2.nonce,
+                    nonce2.blockNumber,
+                    nonce2.txNumber,
+                    nonce2.eventNumber,
+                    blockTimestamp
+                ]
+            );
+
+            const sign1: Signature = keyPair1.signMessage(msgHash);
+            const sign2: Signature = keyPair2.signMessage(msgHash);
+            const aggregatedSignature: Signature = sign1.add(sign2);
+            const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
+            const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
+
+            expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification
+
+            const signature: ISimpleEigenContract.SignatureStruct = {
+                apkG1: g1PointToArgs(aggregatedPubG1),
+                apkG2: g2PointToArgs(aggregatedPubG2),
+                sigma: g1PointToArgs(aggregatedSignature),
+                nonSignerIndices: []
+            }
+            await expect(simpleEigenContract.connect(user3).deleteOperatorSig(
+                await user2.getAddress(),
+                signature,
+                nonce2,
+                blockTimestamp
+            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidNonce");
+        });
+
+        it("should not allow delete with expired signature", async () => {
+            // Define your parameters
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
+
+            // Create the hash
+            const msgHash = ethers.solidityPackedKeccak256(
+                [
+                    "uint8",
+                    "address",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256"
+                ],
+                [
+                    Action.DELETE,
                     await user3.getAddress(),
                     nonce1.nonce,
                     nonce1.blockNumber,
@@ -783,7 +910,7 @@ describe("SimpleEigenContract", () => {
 
             expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -802,13 +929,13 @@ describe("SimpleEigenContract", () => {
 
         it("should not allow delete with invalid signature", async () => {
             // Define your parameters
-            const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
                 [
-                    "uint8", 
-                    "address", 
+                    "uint8",
+                    "address",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -834,7 +961,7 @@ describe("SimpleEigenContract", () => {
 
             expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -858,19 +985,19 @@ describe("SimpleEigenContract", () => {
                 pubG1: encodedPair3G1,
                 pubG2: encodedPair3G2
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
                 [
-                    "uint8", 
-                    "address", 
-                    "string", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256[]", 
-                    "uint256[]", 
+                    "uint8",
+                    "address",
+                    "string",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256[]",
+                    "uint256[]",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -878,13 +1005,13 @@ describe("SimpleEigenContract", () => {
                     "uint256"
                 ],
                 [
-                    Action.UPDATE, 
+                    Action.UPDATE,
                     op.opAddress,
                     op.socket,
                     op.stakedAmount,
-                    encodedPair3G1.X, 
-                    encodedPair3G1.Y, 
-                    encodedPair3G2.X, 
+                    encodedPair3G1.X,
+                    encodedPair3G1.Y,
+                    encodedPair3G2.X,
                     encodedPair3G2.Y,
                     nonce1.nonce,
                     nonce1.blockNumber,
@@ -902,7 +1029,7 @@ describe("SimpleEigenContract", () => {
 
             expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -915,9 +1042,9 @@ describe("SimpleEigenContract", () => {
                 blockTimestamp
             );
             const receipt = await tx.wait();
-            const block = await ethers.provider.getBlock(receipt.blockNumber);
-            const updateBlockTimestamp = block.timestamp;
-            
+            const block = await ethers.provider.getBlock(receipt!.blockNumber);
+            const updateBlockTimestamp = block!.timestamp;
+
             const operatorInfo = await simpleEigenContract.operatorInfos(2);
             expect(operatorInfo.opAddress).to.equal(await user2.getAddress());
             expect(operatorInfo.stakedAmount).to.equal(op.stakedAmount);
@@ -945,19 +1072,19 @@ describe("SimpleEigenContract", () => {
                 pubG1: encodedPair3G1,
                 pubG2: encodedPair3G2
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp + 1000;
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp + 1000;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
                 [
-                    "uint8", 
-                    "address", 
-                    "string", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256[]", 
-                    "uint256[]", 
+                    "uint8",
+                    "address",
+                    "string",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256[]",
+                    "uint256[]",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -965,13 +1092,13 @@ describe("SimpleEigenContract", () => {
                     "uint256"
                 ],
                 [
-                    Action.UPDATE, 
+                    Action.UPDATE,
                     op.opAddress,
                     op.socket,
                     op.stakedAmount,
-                    encodedPair3G1.X, 
-                    encodedPair3G1.Y, 
-                    encodedPair3G2.X, 
+                    encodedPair3G1.X,
+                    encodedPair3G1.Y,
+                    encodedPair3G2.X,
                     encodedPair3G2.Y,
                     nonce1.nonce,
                     nonce1.blockNumber,
@@ -989,7 +1116,7 @@ describe("SimpleEigenContract", () => {
 
             expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1003,6 +1130,79 @@ describe("SimpleEigenContract", () => {
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidTimestamp");
         });
 
+        it("should not allow update an operator with out of order nonce", async () => {
+            // Define your parameters
+            const op = {
+                opAddress: await user2.getAddress(),
+                socket: "127.0.0.1:8080",
+                stakedAmount: ethers.parseEther("100"),
+                pubG1: encodedPair3G1,
+                pubG2: encodedPair3G2
+            }
+            const nonce2 = {
+                nonce: 2,
+                blockNumber: (await ethers.provider.getBlock("latest"))!.number,
+                txNumber: 1,
+                eventNumber: 1
+            }
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
+
+            // Create the hash
+            const msgHash = ethers.solidityPackedKeccak256(
+                [
+                    "uint8",
+                    "address",
+                    "string",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256[]",
+                    "uint256[]",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256"
+                ],
+                [
+                    Action.UPDATE,
+                    op.opAddress,
+                    op.socket,
+                    op.stakedAmount,
+                    encodedPair3G1.X,
+                    encodedPair3G1.Y,
+                    encodedPair3G2.X,
+                    encodedPair3G2.Y,
+                    nonce2.nonce,
+                    nonce2.blockNumber,
+                    nonce2.txNumber,
+                    nonce2.eventNumber,
+                    blockTimestamp
+                ]
+            );
+
+            const sign1: Signature = keyPair1.signMessage(msgHash);
+            const sign2: Signature = keyPair2.signMessage(msgHash);
+            const aggregatedSignature: Signature = sign1.add(sign2);
+            const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
+            const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
+
+            expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification
+
+            const signature: ISimpleEigenContract.SignatureStruct = {
+                apkG1: g1PointToArgs(aggregatedPubG1),
+                apkG2: g2PointToArgs(aggregatedPubG2),
+                sigma: g1PointToArgs(aggregatedSignature),
+                nonSignerIndices: []
+            }
+            await expect(simpleEigenContract.connect(user3).updateOperatorSig(
+                op,
+                signature,
+                nonce2,
+                blockTimestamp
+            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidNonce");
+        });
+
         it("should not allow update an operator with expired signature", async () => {
             // Define your parameters
             const op = {
@@ -1012,19 +1212,19 @@ describe("SimpleEigenContract", () => {
                 pubG1: encodedPair3G1,
                 pubG2: encodedPair3G2
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
                 [
-                    "uint8", 
-                    "address", 
-                    "string", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256[]", 
-                    "uint256[]", 
+                    "uint8",
+                    "address",
+                    "string",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256[]",
+                    "uint256[]",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -1032,13 +1232,13 @@ describe("SimpleEigenContract", () => {
                     "uint256"
                 ],
                 [
-                    Action.ADD, 
+                    Action.ADD,
                     op.opAddress,
                     op.socket,
                     op.stakedAmount,
-                    encodedPair3G1.X, 
-                    encodedPair3G1.Y, 
-                    encodedPair3G2.X, 
+                    encodedPair3G1.X,
+                    encodedPair3G1.Y,
+                    encodedPair3G2.X,
                     encodedPair3G2.Y,
                     nonce1.nonce,
                     nonce1.blockNumber,
@@ -1056,7 +1256,7 @@ describe("SimpleEigenContract", () => {
 
             expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1081,19 +1281,19 @@ describe("SimpleEigenContract", () => {
                 pubG1: encodedPair3G1,
                 pubG2: encodedPair3G2
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
                 [
-                    "uint8", 
-                    "address", 
-                    "string", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256[]", 
-                    "uint256[]", 
+                    "uint8",
+                    "address",
+                    "string",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256[]",
+                    "uint256[]",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -1101,13 +1301,13 @@ describe("SimpleEigenContract", () => {
                     "uint256"
                 ],
                 [
-                    Action.ADD, 
+                    Action.ADD,
                     op.opAddress,
                     op.socket,
                     op.stakedAmount,
-                    encodedPair3G1.X, 
-                    encodedPair3G1.Y, 
-                    encodedPair3G2.X, 
+                    encodedPair3G1.X,
+                    encodedPair3G1.Y,
+                    encodedPair3G2.X,
                     encodedPair3G2.Y,
                     nonce1.nonce,
                     nonce1.blockNumber,
@@ -1125,7 +1325,7 @@ describe("SimpleEigenContract", () => {
 
             expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1148,19 +1348,19 @@ describe("SimpleEigenContract", () => {
                 pubG1: encodedPair3G1,
                 pubG2: encodedPair3G2
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp;
+            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
                 [
-                    "uint8", 
-                    "address", 
-                    "string", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256", 
-                    "uint256[]", 
-                    "uint256[]", 
+                    "uint8",
+                    "address",
+                    "string",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256[]",
+                    "uint256[]",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -1168,13 +1368,13 @@ describe("SimpleEigenContract", () => {
                     "uint256"
                 ],
                 [
-                    Action.ADD, 
+                    Action.ADD,
                     op.opAddress,
                     op.socket,
                     op.stakedAmount,
-                    encodedPair3G1.X, 
-                    encodedPair3G1.Y, 
-                    encodedPair3G2.X, 
+                    encodedPair3G1.X,
+                    encodedPair3G1.Y,
+                    encodedPair3G2.X,
                     encodedPair3G2.Y,
                     nonce1.nonce,
                     nonce1.blockNumber,
@@ -1192,7 +1392,7 @@ describe("SimpleEigenContract", () => {
 
             expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1211,10 +1411,10 @@ describe("SimpleEigenContract", () => {
         it("should verify a valid signature", async () => {
             const textMessage = "sample text to sign";
             const msgHash = hashFunction(textMessage);
-            
+
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
-            
+
             // Add operators
             const op1 = {
                 opAddress: await user1.getAddress(),
@@ -1232,14 +1432,14 @@ describe("SimpleEigenContract", () => {
             }
             await simpleEigenContract.connect(dao).addOperatorDAO(op1);
             await simpleEigenContract.connect(dao).addOperatorDAO(op2);
-            
+
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
             const aggregatedSignature: Signature = sign1.add(sign2);
             const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
             const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1259,10 +1459,10 @@ describe("SimpleEigenContract", () => {
         it("should not verify an invalid signature", async () => {
             const textMessage = "sample text to sign";
             const msgHash = hashFunction(textMessage);
-            
+
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
-            
+
             // Add operators
             const op1 = {
                 opAddress: await user1.getAddress(),
@@ -1280,13 +1480,13 @@ describe("SimpleEigenContract", () => {
             }
             await simpleEigenContract.connect(dao).addOperatorDAO(op1);
             await simpleEigenContract.connect(dao).addOperatorDAO(op2);
-            
+
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const invalidSignature: Signature = sign1.add(sign1);
             const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
             const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(invalidSignature),
@@ -1305,11 +1505,11 @@ describe("SimpleEigenContract", () => {
         it("should verify signature with a non-signer", async () => {
             const textMessage = "sample text to sign";
             const msgHash = hashFunction(textMessage);
-            
+
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-            
+
             // Add operators
             const op1 = {
                 opAddress: await user1.getAddress(),
@@ -1335,14 +1535,14 @@ describe("SimpleEigenContract", () => {
             await simpleEigenContract.connect(dao).addOperatorDAO(op1);
             await simpleEigenContract.connect(dao).addOperatorDAO(op2);
             await simpleEigenContract.connect(dao).addOperatorDAO(op3);
-            
+
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
             const aggregatedSignature: Signature = sign1.add(sign2);
             const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
             const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1).add(keyPair3.pubG1);
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1361,11 +1561,11 @@ describe("SimpleEigenContract", () => {
         it("should verify signature with previous active APK", async () => {
             const textMessage = "sample text to sign";
             const msgHash = hashFunction(textMessage);
-            
+
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-            
+
             // Add operators
             const op1 = {
                 opAddress: await user1.getAddress(),
@@ -1391,14 +1591,14 @@ describe("SimpleEigenContract", () => {
             await simpleEigenContract.connect(dao).addOperatorDAO(op1);
             await simpleEigenContract.connect(dao).addOperatorDAO(op2);
             await simpleEigenContract.connect(dao).addOperatorDAO(op3);
-            
+
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
             const aggregatedSignature: Signature = sign1.add(sign2);
             const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
             const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1417,11 +1617,11 @@ describe("SimpleEigenContract", () => {
         it("should not verify signature with previous inactive APK", async () => {
             const textMessage = "sample text to sign";
             const msgHash = hashFunction(textMessage);
-            
+
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-            
+
             // Add operators
             const op1 = {
                 opAddress: await user1.getAddress(),
@@ -1447,7 +1647,7 @@ describe("SimpleEigenContract", () => {
             await simpleEigenContract.connect(dao).addOperatorDAO(op1);
             await simpleEigenContract.connect(dao).addOperatorDAO(op2);
             await simpleEigenContract.connect(dao).addOperatorDAO(op3);
-            
+
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
             const aggregatedSignature: Signature = sign1.add(sign2);
@@ -1457,7 +1657,7 @@ describe("SimpleEigenContract", () => {
             await ethers.provider.send("evm_increaseTime", [10 * 3600]);
             await ethers.provider.send("evm_mine");
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1472,11 +1672,11 @@ describe("SimpleEigenContract", () => {
         it("should verify signature with current APK", async () => {
             const textMessage = "sample text to sign";
             const msgHash = hashFunction(textMessage);
-            
+
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-            
+
             // Add operators
             const op1 = {
                 opAddress: await user1.getAddress(),
@@ -1502,7 +1702,7 @@ describe("SimpleEigenContract", () => {
             await simpleEigenContract.connect(dao).addOperatorDAO(op1);
             await simpleEigenContract.connect(dao).addOperatorDAO(op2);
             await simpleEigenContract.connect(dao).addOperatorDAO(op3);
-            
+
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
             const sign3: Signature = keyPair3.signMessage(msgHash);
@@ -1513,7 +1713,7 @@ describe("SimpleEigenContract", () => {
             await ethers.provider.send("evm_increaseTime", [10 * 3600]);
             await ethers.provider.send("evm_mine");
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1531,11 +1731,11 @@ describe("SimpleEigenContract", () => {
         it("should verify signature with multiple non-signers", async () => {
             const textMessage = "sample text to sign";
             const msgHash = hashFunction(textMessage);
-            
+
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-            
+
             // Add operators
             const op1 = {
                 opAddress: await user1.getAddress(),
@@ -1561,13 +1761,13 @@ describe("SimpleEigenContract", () => {
             await simpleEigenContract.connect(dao).addOperatorDAO(op1);
             await simpleEigenContract.connect(dao).addOperatorDAO(op2);
             await simpleEigenContract.connect(dao).addOperatorDAO(op3);
-            
+
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const aggregatedSignature: Signature = sign1;
             const aggregatedPubG2: G2Point = keyPair1.pubG2;
             const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1).add(keyPair3.pubG1);
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1586,10 +1786,10 @@ describe("SimpleEigenContract", () => {
         it("should verify signature with signer reported as non-signers", async () => {
             const textMessage = "sample text to sign";
             const msgHash = hashFunction(textMessage);
-            
+
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
-            
+
             // Add operators
             const op1 = {
                 opAddress: await user1.getAddress(),
@@ -1607,14 +1807,14 @@ describe("SimpleEigenContract", () => {
             }
             await simpleEigenContract.connect(dao).addOperatorDAO(op1);
             await simpleEigenContract.connect(dao).addOperatorDAO(op2);
-            
+
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
             const aggregatedSignature: Signature = sign1.add(sign2);
             const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
             const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1633,11 +1833,11 @@ describe("SimpleEigenContract", () => {
         it("should not verify signature with non-reported non-signers", async () => {
             const textMessage = "sample text to sign";
             const msgHash = hashFunction(textMessage);
-            
+
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-            
+
             // Add operators
             const op1 = {
                 opAddress: await user1.getAddress(),
@@ -1663,14 +1863,14 @@ describe("SimpleEigenContract", () => {
             await simpleEigenContract.connect(dao).addOperatorDAO(op1);
             await simpleEigenContract.connect(dao).addOperatorDAO(op2);
             await simpleEigenContract.connect(dao).addOperatorDAO(op3);
-            
+
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
             const aggregatedSignature: Signature = sign1.add(sign2);
             const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
             const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1).add(keyPair3.pubG1);
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1689,10 +1889,10 @@ describe("SimpleEigenContract", () => {
         it("should not verify signature with zero index as non-signers", async () => {
             const textMessage = "sample text to sign";
             const msgHash = hashFunction(textMessage);
-            
+
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
-            
+
             // Add operators
             const op1 = {
                 opAddress: await user1.getAddress(),
@@ -1717,7 +1917,7 @@ describe("SimpleEigenContract", () => {
             const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
             const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1728,7 +1928,7 @@ describe("SimpleEigenContract", () => {
                 signature
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidOperatorIndex");
 
-            const signature2: SimpleEigenContract.SignatureStruct = {
+            const signature2: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1743,10 +1943,10 @@ describe("SimpleEigenContract", () => {
         it("should not verify signature with non-registered operator as non-signers", async () => {
             const textMessage = "sample text to sign";
             const msgHash = hashFunction(textMessage);
-            
+
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
-            
+
             // Add operators
             const op1 = {
                 opAddress: await user1.getAddress(),
@@ -1771,7 +1971,7 @@ describe("SimpleEigenContract", () => {
             const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
             const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1782,7 +1982,7 @@ describe("SimpleEigenContract", () => {
                 signature
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidOperatorIndex");
 
-            const signature2: SimpleEigenContract.SignatureStruct = {
+            const signature2: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1797,11 +1997,11 @@ describe("SimpleEigenContract", () => {
         it("should verify signature with current APK with sufficient staked amount", async () => {
             const textMessage = "sample text to sign";
             const msgHash = hashFunction(textMessage);
-            
+
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-            
+
             // Add operators
             const op1 = {
                 opAddress: await user1.getAddress(),
@@ -1830,7 +2030,7 @@ describe("SimpleEigenContract", () => {
 
             // Set staking limit
             await simpleEigenContract.connect(staked_setter).setMinStakedLimit(2500);
-            
+
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
             const sign3: Signature = keyPair3.signMessage(msgHash);
@@ -1841,7 +2041,7 @@ describe("SimpleEigenContract", () => {
             await ethers.provider.send("evm_increaseTime", [10 * 3600]);
             await ethers.provider.send("evm_mine");
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1859,11 +2059,11 @@ describe("SimpleEigenContract", () => {
         it("should verify signature with current APK with insufficient staked amount", async () => {
             const textMessage = "sample text to sign";
             const msgHash = hashFunction(textMessage);
-            
+
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-            
+
             // Add operators
             const op1 = {
                 opAddress: await user1.getAddress(),
@@ -1892,7 +2092,7 @@ describe("SimpleEigenContract", () => {
 
             // Set staking limit
             await simpleEigenContract.connect(staked_setter).setMinStakedLimit(2500);
-            
+
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
             const aggregatedSignature: Signature = sign1.add(sign2);
@@ -1902,7 +2102,7 @@ describe("SimpleEigenContract", () => {
             await ethers.provider.send("evm_increaseTime", [10 * 3600]);
             await ethers.provider.send("evm_mine");
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1917,11 +2117,11 @@ describe("SimpleEigenContract", () => {
         it("should verify signature with previous APK with sufficient staked amount", async () => {
             const textMessage = "sample text to sign";
             const msgHash = hashFunction(textMessage);
-            
+
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-            
+
             // Add operators
             const op1 = {
                 opAddress: await user1.getAddress(),
@@ -1950,14 +2150,14 @@ describe("SimpleEigenContract", () => {
 
             // Set staking limit
             await simpleEigenContract.connect(staked_setter).setMinStakedLimit(1500);
-            
+
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
             const aggregatedSignature: Signature = sign1.add(sign2);
             const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
             const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -1975,11 +2175,11 @@ describe("SimpleEigenContract", () => {
         it("should verify signature with previous APK with insufficient staked amount", async () => {
             const textMessage = "sample text to sign";
             const msgHash = hashFunction(textMessage);
-            
+
             const keyPair1 = new KeyPair();
             const keyPair2 = KeyPair.fromString("04");
             const keyPair3 = KeyPair.fromString("08");
-            
+
             // Add operators
             const op1 = {
                 opAddress: await user1.getAddress(),
@@ -2008,13 +2208,13 @@ describe("SimpleEigenContract", () => {
 
             // Set staking limit
             await simpleEigenContract.connect(staked_setter).setMinStakedLimit(1500);
-            
+
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const aggregatedSignature: Signature = sign1;
             const aggregatedPubG2: G2Point = keyPair1.pubG2;
             const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
 
-            const signature: SimpleEigenContract.SignatureStruct = {
+            const signature: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
                 apkG2: g2PointToArgs(aggregatedPubG2),
                 sigma: g1PointToArgs(aggregatedSignature),
@@ -2071,7 +2271,7 @@ describe("SimpleEigenContract", () => {
         it("should only allow setter to set validity periods", async () => {
             const newSignaturePeriod = 1;
             const newAPKPeriod = 2;
-            
+
             await expect(simpleEigenContract.connect(user1).setValidityPeriods(newSignaturePeriod, newAPKPeriod))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
 
@@ -2087,7 +2287,7 @@ describe("SimpleEigenContract", () => {
 
         it("should only allow setter to set min staked limit", async () => {
             const newMinStakedLimit = 1;
-            
+
             await expect(simpleEigenContract.connect(user1).setMinStakedLimit(newMinStakedLimit))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
 
