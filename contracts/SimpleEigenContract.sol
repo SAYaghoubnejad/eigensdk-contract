@@ -227,7 +227,9 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         }
         operators = new Operator[](to_ - from_ + 1);
         for (uint32 i = from_; i <= to_; i++){
-            operators[i - from_] = operatorInfos[i];
+            if (index2address[i] != address(0)){
+                operators[i - from_] = operatorInfos[i];
+            }
         }
     }
 
