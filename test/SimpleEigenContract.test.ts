@@ -301,7 +301,6 @@ describe("SimpleEigenContract", () => {
                     "uint256",
                     "uint256",
                     "uint256",
-                    "uint256",
                     "uint256"
                 ],
                 [
@@ -316,8 +315,7 @@ describe("SimpleEigenContract", () => {
                     nonce1.nonce,
                     nonce1.blockNumber,
                     nonce1.txNumber,
-                    nonce1.eventNumber,
-                    blockTimestamp
+                    nonce1.eventNumber
                 ]
             );
 
@@ -338,8 +336,7 @@ describe("SimpleEigenContract", () => {
             const tx = await simpleEigenContract.connect(user3).addOperatorSig(
                 op,
                 signature,
-                nonce1,
-                blockTimestamp
+                nonce1
             );
             const receipt = await tx.wait();
             const block = await ethers.provider.getBlock(receipt!.blockNumber);
@@ -364,73 +361,6 @@ describe("SimpleEigenContract", () => {
             expect(apkTimestamp2).to.be.equal(0);
         });
 
-        it("should not allow add an operator with future signature", async () => {
-            // Define your parameters
-            const op = {
-                opAddress: await user3.getAddress(),
-                socket: "127.0.0.1:8080",
-                stakedAmount: ethers.parseEther("100"),
-                pubG1: encodedPair3G1,
-                pubG2: encodedPair3G2
-            }
-            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp + 1000;
-
-            // Create the hash
-            const msgHash = ethers.solidityPackedKeccak256(
-                [
-                    "uint8",
-                    "address",
-                    "string",
-                    "uint256",
-                    "uint256",
-                    "uint256",
-                    "uint256[]",
-                    "uint256[]",
-                    "uint256",
-                    "uint256",
-                    "uint256",
-                    "uint256",
-                    "uint256"
-                ],
-                [
-                    Action.ADD,
-                    op.opAddress,
-                    op.socket,
-                    op.stakedAmount,
-                    encodedPair3G1.X,
-                    encodedPair3G1.Y,
-                    encodedPair3G2.X,
-                    encodedPair3G2.Y,
-                    nonce1.nonce,
-                    nonce1.blockNumber,
-                    nonce1.txNumber,
-                    nonce1.eventNumber,
-                    blockTimestamp
-                ]
-            );
-
-            const sign1: Signature = keyPair1.signMessage(msgHash);
-            const sign2: Signature = keyPair2.signMessage(msgHash);
-            const aggregatedSignature: Signature = sign1.add(sign2);
-            const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
-            const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
-
-            expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
-
-            const signature: ISimpleEigenContract.SignatureStruct = {
-                apkG1: g1PointToArgs(aggregatedPubG1),
-                apkG2: g2PointToArgs(aggregatedPubG2),
-                sigma: g1PointToArgs(aggregatedSignature),
-                nonSignerIndices: []
-            }
-            await expect(simpleEigenContract.connect(user3).addOperatorSig(
-                op,
-                signature,
-                nonce1,
-                blockTimestamp
-            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidTimestamp");
-        });
-
         it("should not allow add an operator with out of order nonce", async () => {
             // Define your parameters
             const op = {
@@ -446,7 +376,6 @@ describe("SimpleEigenContract", () => {
                 txNumber: 1,
                 eventNumber: 1
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
@@ -459,7 +388,6 @@ describe("SimpleEigenContract", () => {
                     "uint256",
                     "uint256[]",
                     "uint256[]",
-                    "uint256",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -477,8 +405,7 @@ describe("SimpleEigenContract", () => {
                     nonce2.nonce,
                     nonce2.blockNumber,
                     nonce2.txNumber,
-                    nonce2.eventNumber,
-                    blockTimestamp
+                    nonce2.eventNumber
                 ]
             );
 
@@ -499,8 +426,7 @@ describe("SimpleEigenContract", () => {
             await expect(simpleEigenContract.connect(user3).addOperatorSig(
                 op,
                 signature,
-                nonce2,
-                blockTimestamp
+                nonce2
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidNonce");
         });
 
@@ -513,7 +439,6 @@ describe("SimpleEigenContract", () => {
                 pubG1: encodedPair3G1,
                 pubG2: encodedPair3G2
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
@@ -526,7 +451,6 @@ describe("SimpleEigenContract", () => {
                     "uint256",
                     "uint256[]",
                     "uint256[]",
-                    "uint256",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -544,8 +468,7 @@ describe("SimpleEigenContract", () => {
                     nonce1.nonce,
                     nonce1.blockNumber,
                     nonce1.txNumber,
-                    nonce1.eventNumber,
-                    blockTimestamp
+                    nonce1.eventNumber
                 ]
             );
 
@@ -566,8 +489,7 @@ describe("SimpleEigenContract", () => {
             await expect(simpleEigenContract.connect(user3).addOperatorSig(
                 op,
                 signature,
-                nonce1,
-                blockTimestamp
+                nonce1
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidSignature");
         });
 
@@ -580,7 +502,6 @@ describe("SimpleEigenContract", () => {
                 pubG1: encodedPair3G1,
                 pubG2: encodedPair3G2
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
@@ -593,7 +514,6 @@ describe("SimpleEigenContract", () => {
                     "uint256",
                     "uint256[]",
                     "uint256[]",
-                    "uint256",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -611,8 +531,7 @@ describe("SimpleEigenContract", () => {
                     nonce1.nonce,
                     nonce1.blockNumber,
                     nonce1.txNumber,
-                    nonce1.eventNumber,
-                    blockTimestamp
+                    nonce1.eventNumber
                 ]
             );
 
@@ -633,21 +552,18 @@ describe("SimpleEigenContract", () => {
             await expect(simpleEigenContract.connect(user3).addOperatorSig(
                 op,
                 signature,
-                nonce1,
-                blockTimestamp
+                nonce1
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidSignature");
         });
 
         it("should delete an operator", async () => {
             // Define your parameters
-            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
                 [
                     "uint8",
                     "address",
-                    "uint256",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -659,8 +575,7 @@ describe("SimpleEigenContract", () => {
                     nonce1.nonce,
                     nonce1.blockNumber,
                     nonce1.txNumber,
-                    nonce1.eventNumber,
-                    blockTimestamp
+                    nonce1.eventNumber
                 ]
             );
 
@@ -681,8 +596,7 @@ describe("SimpleEigenContract", () => {
             const tx = await simpleEigenContract.connect(user3).deleteOperatorSig(
                 await user2.getAddress(),
                 signature,
-                nonce1,
-                blockTimestamp
+                nonce1
             );
             const receipt = await tx.wait();
             const block = await ethers.provider.getBlock(receipt!.blockNumber);
@@ -702,57 +616,8 @@ describe("SimpleEigenContract", () => {
             expect(apkTimestamp2).to.be.equal(0);
         });
 
-        it("should not allow delete an operator with future signature", async () => {
-            // Define your parameters
-            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp + 1000;
-
-            // Create the hash
-            const msgHash = ethers.solidityPackedKeccak256(
-                [
-                    "uint8",
-                    "address",
-                    "uint256",
-                    "uint256",
-                    "uint256",
-                    "uint256",
-                    "uint256"
-                ],
-                [
-                    Action.DELETE,
-                    await user2.getAddress(),
-                    nonce1.nonce,
-                    nonce1.blockNumber,
-                    nonce1.txNumber,
-                    nonce1.eventNumber,
-                    blockTimestamp
-                ]
-            );
-
-            const sign1: Signature = keyPair1.signMessage(msgHash);
-            const sign2: Signature = keyPair2.signMessage(msgHash);
-            const aggregatedSignature: Signature = sign1.add(sign2);
-            const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
-            const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
-
-            expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
-
-            const signature: ISimpleEigenContract.SignatureStruct = {
-                apkG1: g1PointToArgs(aggregatedPubG1),
-                apkG2: g2PointToArgs(aggregatedPubG2),
-                sigma: g1PointToArgs(aggregatedSignature),
-                nonSignerIndices: []
-            }
-            await expect(simpleEigenContract.connect(user3).deleteOperatorSig(
-                await user2.getAddress(),
-                signature,
-                nonce1,
-                blockTimestamp
-            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidTimestamp");
-        });
-
         it("should not allow delete an operator with out of order nonce", async () => {
             // Define your parameters
-            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const nonce2 = {
@@ -768,7 +633,6 @@ describe("SimpleEigenContract", () => {
                     "uint256",
                     "uint256",
                     "uint256",
-                    "uint256",
                     "uint256"
                 ],
                 [
@@ -777,8 +641,7 @@ describe("SimpleEigenContract", () => {
                     nonce2.nonce,
                     nonce2.blockNumber,
                     nonce2.txNumber,
-                    nonce2.eventNumber,
-                    blockTimestamp
+                    nonce2.eventNumber
                 ]
             );
 
@@ -799,21 +662,16 @@ describe("SimpleEigenContract", () => {
             await expect(simpleEigenContract.connect(user3).deleteOperatorSig(
                 await user2.getAddress(),
                 signature,
-                nonce2,
-                blockTimestamp
+                nonce2
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidNonce");
         });
 
         it("should not allow delete with invalid signature", async () => {
-            // Define your parameters
-            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
-
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
                 [
                     "uint8",
                     "address",
-                    "uint256",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -825,8 +683,7 @@ describe("SimpleEigenContract", () => {
                     nonce1.nonce,
                     nonce1.blockNumber,
                     nonce1.txNumber,
-                    nonce1.eventNumber,
-                    blockTimestamp
+                    nonce1.eventNumber
                 ]
             );
 
@@ -847,8 +704,7 @@ describe("SimpleEigenContract", () => {
             await expect(simpleEigenContract.connect(user3).deleteOperatorSig(
                 await user3.getAddress(),
                 signature,
-                nonce1,
-                blockTimestamp
+                nonce1
             ))
                 .to.be.revertedWithCustomError(simpleEigenContract, "InvalidSignature");
         });
@@ -862,7 +718,6 @@ describe("SimpleEigenContract", () => {
                 pubG1: encodedPair3G1,
                 pubG2: encodedPair3G2
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
@@ -875,7 +730,6 @@ describe("SimpleEigenContract", () => {
                     "uint256",
                     "uint256[]",
                     "uint256[]",
-                    "uint256",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -893,8 +747,7 @@ describe("SimpleEigenContract", () => {
                     nonce1.nonce,
                     nonce1.blockNumber,
                     nonce1.txNumber,
-                    nonce1.eventNumber,
-                    blockTimestamp
+                    nonce1.eventNumber
                 ]
             );
 
@@ -915,8 +768,7 @@ describe("SimpleEigenContract", () => {
             const tx = await simpleEigenContract.connect(user3).updateOperatorSig(
                 op,
                 signature,
-                nonce1,
-                blockTimestamp
+                nonce1
             );
             const receipt = await tx.wait();
             const block = await ethers.provider.getBlock(receipt!.blockNumber);
@@ -940,73 +792,6 @@ describe("SimpleEigenContract", () => {
             expect(apkTimestamp2).to.be.equal(0);
         });
 
-        it("should not allow update an operator with future signature", async () => {
-            // Define your parameters
-            const op = {
-                opAddress: await user2.getAddress(),
-                socket: "127.0.0.1:8080",
-                stakedAmount: ethers.parseEther("100"),
-                pubG1: encodedPair3G1,
-                pubG2: encodedPair3G2
-            }
-            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp + 1000;
-
-            // Create the hash
-            const msgHash = ethers.solidityPackedKeccak256(
-                [
-                    "uint8",
-                    "address",
-                    "string",
-                    "uint256",
-                    "uint256",
-                    "uint256",
-                    "uint256[]",
-                    "uint256[]",
-                    "uint256",
-                    "uint256",
-                    "uint256",
-                    "uint256",
-                    "uint256"
-                ],
-                [
-                    Action.UPDATE,
-                    op.opAddress,
-                    op.socket,
-                    op.stakedAmount,
-                    encodedPair3G1.X,
-                    encodedPair3G1.Y,
-                    encodedPair3G2.X,
-                    encodedPair3G2.Y,
-                    nonce1.nonce,
-                    nonce1.blockNumber,
-                    nonce1.txNumber,
-                    nonce1.eventNumber,
-                    blockTimestamp
-                ]
-            );
-
-            const sign1: Signature = keyPair1.signMessage(msgHash);
-            const sign2: Signature = keyPair2.signMessage(msgHash);
-            const aggregatedSignature: Signature = sign1.add(sign2);
-            const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
-            const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
-
-            expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
-
-            const signature: ISimpleEigenContract.SignatureStruct = {
-                apkG1: g1PointToArgs(aggregatedPubG1),
-                apkG2: g2PointToArgs(aggregatedPubG2),
-                sigma: g1PointToArgs(aggregatedSignature),
-                nonSignerIndices: []
-            }
-            await expect(simpleEigenContract.connect(user3).updateOperatorSig(
-                op,
-                signature,
-                nonce1,
-                blockTimestamp
-            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidTimestamp");
-        });
-
         it("should not allow update an operator with out of order nonce", async () => {
             // Define your parameters
             const op = {
@@ -1022,7 +807,6 @@ describe("SimpleEigenContract", () => {
                 txNumber: 1,
                 eventNumber: 1
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
@@ -1035,7 +819,6 @@ describe("SimpleEigenContract", () => {
                     "uint256",
                     "uint256[]",
                     "uint256[]",
-                    "uint256",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -1053,8 +836,7 @@ describe("SimpleEigenContract", () => {
                     nonce2.nonce,
                     nonce2.blockNumber,
                     nonce2.txNumber,
-                    nonce2.eventNumber,
-                    blockTimestamp
+                    nonce2.eventNumber
                 ]
             );
 
@@ -1075,8 +857,7 @@ describe("SimpleEigenContract", () => {
             await expect(simpleEigenContract.connect(user3).updateOperatorSig(
                 op,
                 signature,
-                nonce2,
-                blockTimestamp
+                nonce2
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidNonce");
         });
 
@@ -1089,7 +870,6 @@ describe("SimpleEigenContract", () => {
                 pubG1: encodedPair3G1,
                 pubG2: encodedPair3G2
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
@@ -1102,7 +882,6 @@ describe("SimpleEigenContract", () => {
                     "uint256",
                     "uint256[]",
                     "uint256[]",
-                    "uint256",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -1120,8 +899,7 @@ describe("SimpleEigenContract", () => {
                     nonce1.nonce,
                     nonce1.blockNumber,
                     nonce1.txNumber,
-                    nonce1.eventNumber,
-                    blockTimestamp
+                    nonce1.eventNumber
                 ]
             );
 
@@ -1142,8 +920,7 @@ describe("SimpleEigenContract", () => {
             await expect(simpleEigenContract.connect(user3).updateOperatorSig(
                 op,
                 signature,
-                nonce1,
-                blockTimestamp
+                nonce1
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidSignature");
         });
 
@@ -1156,7 +933,6 @@ describe("SimpleEigenContract", () => {
                 pubG1: encodedPair3G1,
                 pubG2: encodedPair3G2
             }
-            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
 
             // Create the hash
             const msgHash = ethers.solidityPackedKeccak256(
@@ -1169,7 +945,6 @@ describe("SimpleEigenContract", () => {
                     "uint256",
                     "uint256[]",
                     "uint256[]",
-                    "uint256",
                     "uint256",
                     "uint256",
                     "uint256",
@@ -1187,8 +962,7 @@ describe("SimpleEigenContract", () => {
                     nonce1.nonce,
                     nonce1.blockNumber,
                     nonce1.txNumber,
-                    nonce1.eventNumber,
-                    blockTimestamp
+                    nonce1.eventNumber
                 ]
             );
 
@@ -1209,8 +983,7 @@ describe("SimpleEigenContract", () => {
             await expect(simpleEigenContract.connect(user3).updateOperatorSig(
                 op,
                 signature,
-                nonce1,
-                blockTimestamp
+                nonce1
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidSignature");
         });
     });

@@ -57,8 +57,6 @@ interface ISimpleEigenContract {
     error OperatorNotExisted();
     /// @notice Thrown when a signature is invalid
     error InvalidSignature();
-    /// @notice Thrown when the provided timestamp is invalid
-    error InvalidTimestamp();
     /// @notice Thrown when an invalid operator index is provided
     error InvalidOperatorIndex();
     /// @notice Thrown when the staked amount is insufficient
@@ -94,36 +92,30 @@ interface ISimpleEigenContract {
     /// @param op_ The Operator to be added
     /// @param signature_ Signature to add an operator
     /// @param nonce_ The nonce used for adding operator
-    /// @param sigTimestamp_ Timestamp of the signature
     function addOperatorSig(
         Operator calldata op_,
         Signature memory signature_,
-        SynchronizationNonce calldata nonce_,
-        uint256 sigTimestamp_
+        SynchronizationNonce calldata nonce_
     ) external;
 
     /// @notice Delete an existing operator using Signature
     /// @param opAddress_ Address of the operator to be deleted
     /// @param signature_ Signature to delete an operator
     /// @param nonce_ The nonce used for deleting operator
-    /// @param sigTimestamp_ Timestamp of the signature
     function deleteOperatorSig(
         address opAddress_,
         Signature memory signature_,
-        SynchronizationNonce calldata nonce_,
-        uint256 sigTimestamp_
+        SynchronizationNonce calldata nonce_
     ) external;
 
     /// @notice Update an existing operator using Signature
     /// @param op_ The Operator to be added
     /// @param signature_ Signature to update an operator
     /// @param nonce_ The nonce used for updating operator
-    /// @param sigTimestamp_ Timestamp of the signature
     function updateOperatorSig(
         Operator calldata op_,
         Signature memory signature_,
-        SynchronizationNonce calldata nonce_,
-        uint256 sigTimestamp_
+        SynchronizationNonce calldata nonce_
     ) external;
 
     /// @notice Sets the aggregated history for a G1 point

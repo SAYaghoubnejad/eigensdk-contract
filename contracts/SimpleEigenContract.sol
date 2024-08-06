@@ -83,12 +83,8 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
     function addOperatorSig(
         Operator calldata op_,
         Signature memory signature_,
-        SynchronizationNonce calldata nonce_,
-        uint256 sigTimestamp_
+        SynchronizationNonce calldata nonce_
     ) public override {
-        if (sigTimestamp_ > block.timestamp) {
-            revert InvalidTimestamp();
-        }
         if (nonce_.nonce != lastNonce.nonce + 1 || nonce_.blockNumber < lastNonce.blockNumber) {
             revert InvalidNonce();
         }
@@ -104,8 +100,7 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
             nonce_.nonce,
             nonce_.blockNumber,
             nonce_.txNumber,
-            nonce_.eventNumber,
-            sigTimestamp_
+            nonce_.eventNumber
         ));
         bool siganatureIsValid;
         (, siganatureIsValid) = verifySignature(_hash, signature_);
@@ -120,12 +115,8 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
     function deleteOperatorSig(
         address opAddress_,
         Signature memory signature_,
-        SynchronizationNonce calldata nonce_,
-        uint256 sigTimestamp_
+        SynchronizationNonce calldata nonce_
     ) public override {
-        if (sigTimestamp_ > block.timestamp) {
-            revert InvalidTimestamp();
-        }
         if (nonce_.nonce != lastNonce.nonce + 1 || nonce_.blockNumber < lastNonce.blockNumber) {
             revert InvalidNonce();
         }
@@ -135,8 +126,7 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
             nonce_.nonce,
             nonce_.blockNumber,
             nonce_.txNumber,
-            nonce_.eventNumber,
-            sigTimestamp_
+            nonce_.eventNumber
         ));
         bool signatureIsValid;
         (, signatureIsValid) = verifySignature(_hash, signature_);
@@ -151,12 +141,8 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
     function updateOperatorSig(
         Operator calldata op_,
         Signature memory signature_,
-        SynchronizationNonce calldata nonce_,
-        uint256 sigTimestamp_
+        SynchronizationNonce calldata nonce_
     ) public override {
-        if (sigTimestamp_ > block.timestamp) {
-            revert InvalidTimestamp();
-        }
         if (nonce_.nonce != lastNonce.nonce + 1 || nonce_.blockNumber < lastNonce.blockNumber) {
             revert InvalidNonce();
         }
@@ -172,8 +158,7 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
             nonce_.nonce,
             nonce_.blockNumber,
             nonce_.txNumber,
-            nonce_.eventNumber,
-            sigTimestamp_
+            nonce_.eventNumber
         ));
         bool siganatureIsValid;
         (, siganatureIsValid) = verifySignature(_hash, signature_);
