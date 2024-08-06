@@ -66,9 +66,6 @@ describe("SimpleEigenContract", () => {
             const minStakedLimit = await simpleEigenContract.minStakedLimit();
             expect(minStakedLimit).to.equal(0);
 
-            const signatureValidityPeriod = await simpleEigenContract.signatureValidityPeriod();
-            expect(signatureValidityPeriod).to.equal(5 * 60); // 5 minutes in seconds
-
             const apkValidityPeriod = await simpleEigenContract.apkValidityPeriod();
             expect(apkValidityPeriod).to.equal(5 * 60); // 5 minutes in seconds
         });
@@ -574,75 +571,6 @@ describe("SimpleEigenContract", () => {
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidSignature");
         });
 
-        it("should not allow add an operator with expired signature", async () => {
-            // Define your parameters
-            const op = {
-                opAddress: await user3.getAddress(),
-                socket: "127.0.0.1:8080",
-                stakedAmount: ethers.parseEther("100"),
-                pubG1: encodedPair3G1,
-                pubG2: encodedPair3G2
-            }
-            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
-
-            // Create the hash
-            const msgHash = ethers.solidityPackedKeccak256(
-                [
-                    "uint8",
-                    "address",
-                    "string",
-                    "uint256",
-                    "uint256",
-                    "uint256",
-                    "uint256[]",
-                    "uint256[]",
-                    "uint256",
-                    "uint256",
-                    "uint256",
-                    "uint256",
-                    "uint256"
-                ],
-                [
-                    Action.ADD,
-                    op.opAddress,
-                    op.socket,
-                    op.stakedAmount,
-                    encodedPair3G1.X,
-                    encodedPair3G1.Y,
-                    encodedPair3G2.X,
-                    encodedPair3G2.Y,
-                    nonce1.nonce,
-                    nonce1.blockNumber,
-                    nonce1.txNumber,
-                    nonce1.eventNumber,
-                    blockTimestamp
-                ]
-            );
-
-            const sign1: Signature = keyPair1.signMessage(msgHash);
-            const sign2: Signature = keyPair2.signMessage(msgHash);
-            const aggregatedSignature: Signature = sign1.add(sign2);
-            const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
-            const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
-
-            expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
-
-            const signature: ISimpleEigenContract.SignatureStruct = {
-                apkG1: g1PointToArgs(aggregatedPubG1),
-                apkG2: g2PointToArgs(aggregatedPubG2),
-                sigma: g1PointToArgs(aggregatedSignature),
-                nonSignerIndices: []
-            }
-            await ethers.provider.send("evm_increaseTime", [10 * 3600]);
-            await ethers.provider.send("evm_mine");
-            await expect(simpleEigenContract.connect(user3).addOperatorSig(
-                op,
-                signature,
-                nonce1,
-                blockTimestamp
-            )).to.be.revertedWithCustomError(simpleEigenContract, "SignatureExpired");
-        });
-
         it("should not allow add an operator with invalid signature", async () => {
             // Define your parameters
             const op = {
@@ -874,57 +802,6 @@ describe("SimpleEigenContract", () => {
                 nonce2,
                 blockTimestamp
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidNonce");
-        });
-
-        it("should not allow delete with expired signature", async () => {
-            // Define your parameters
-            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
-
-            // Create the hash
-            const msgHash = ethers.solidityPackedKeccak256(
-                [
-                    "uint8",
-                    "address",
-                    "uint256",
-                    "uint256",
-                    "uint256",
-                    "uint256",
-                    "uint256"
-                ],
-                [
-                    Action.DELETE,
-                    await user3.getAddress(),
-                    nonce1.nonce,
-                    nonce1.blockNumber,
-                    nonce1.txNumber,
-                    nonce1.eventNumber,
-                    blockTimestamp
-                ]
-            );
-
-            const sign1: Signature = keyPair1.signMessage(msgHash);
-            const sign2: Signature = keyPair2.signMessage(msgHash);
-            const aggregatedSignature: Signature = sign1.add(sign2);
-            const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
-            const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
-
-            expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
-
-            const signature: ISimpleEigenContract.SignatureStruct = {
-                apkG1: g1PointToArgs(aggregatedPubG1),
-                apkG2: g2PointToArgs(aggregatedPubG2),
-                sigma: g1PointToArgs(aggregatedSignature),
-                nonSignerIndices: []
-            }
-            await ethers.provider.send("evm_increaseTime", [10 * 3600]);
-            await ethers.provider.send("evm_mine");
-            await expect(simpleEigenContract.connect(user3).deleteOperatorSig(
-                await user3.getAddress(),
-                signature,
-                nonce1,
-                blockTimestamp
-            ))
-                .to.be.revertedWithCustomError(simpleEigenContract, "SignatureExpired");
         });
 
         it("should not allow delete with invalid signature", async () => {
@@ -1201,75 +1078,6 @@ describe("SimpleEigenContract", () => {
                 nonce2,
                 blockTimestamp
             )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidNonce");
-        });
-
-        it("should not allow update an operator with expired signature", async () => {
-            // Define your parameters
-            const op = {
-                opAddress: await user2.getAddress(),
-                socket: "127.0.0.1:8080",
-                stakedAmount: ethers.parseEther("100"),
-                pubG1: encodedPair3G1,
-                pubG2: encodedPair3G2
-            }
-            const blockTimestamp = (await ethers.provider.getBlock('latest'))!.timestamp;
-
-            // Create the hash
-            const msgHash = ethers.solidityPackedKeccak256(
-                [
-                    "uint8",
-                    "address",
-                    "string",
-                    "uint256",
-                    "uint256",
-                    "uint256",
-                    "uint256[]",
-                    "uint256[]",
-                    "uint256",
-                    "uint256",
-                    "uint256",
-                    "uint256",
-                    "uint256"
-                ],
-                [
-                    Action.ADD,
-                    op.opAddress,
-                    op.socket,
-                    op.stakedAmount,
-                    encodedPair3G1.X,
-                    encodedPair3G1.Y,
-                    encodedPair3G2.X,
-                    encodedPair3G2.Y,
-                    nonce1.nonce,
-                    nonce1.blockNumber,
-                    nonce1.txNumber,
-                    nonce1.eventNumber,
-                    blockTimestamp
-                ]
-            );
-
-            const sign1: Signature = keyPair1.signMessage(msgHash);
-            const sign2: Signature = keyPair2.signMessage(msgHash);
-            const aggregatedSignature: Signature = sign1.add(sign2);
-            const aggregatedPubG2: G2Point = keyPair1.pubG2.add(keyPair2.pubG2);
-            const aggregatedPubG1: G1Point = keyPair1.pubG1.add(keyPair2.pubG1);
-
-            expect(aggregatedSignature.verify(aggregatedPubG2, msgHash)).to.be.true;  // local verification            
-
-            const signature: ISimpleEigenContract.SignatureStruct = {
-                apkG1: g1PointToArgs(aggregatedPubG1),
-                apkG2: g2PointToArgs(aggregatedPubG2),
-                sigma: g1PointToArgs(aggregatedSignature),
-                nonSignerIndices: []
-            }
-            await ethers.provider.send("evm_increaseTime", [10 * 3600]);
-            await ethers.provider.send("evm_mine");
-            await expect(simpleEigenContract.connect(user3).updateOperatorSig(
-                op,
-                signature,
-                nonce1,
-                blockTimestamp
-            )).to.be.revertedWithCustomError(simpleEigenContract, "SignatureExpired");
         });
 
         it("should not allow update an operator with invalid signature", async () => {
@@ -2269,18 +2077,15 @@ describe("SimpleEigenContract", () => {
 
     describe("Setters", () => {
         it("should only allow setter to set validity periods", async () => {
-            const newSignaturePeriod = 1;
             const newAPKPeriod = 2;
 
-            await expect(simpleEigenContract.connect(user1).setValidityPeriods(newSignaturePeriod, newAPKPeriod))
+            await expect(simpleEigenContract.connect(user1).setValidityPeriods(newAPKPeriod))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
 
-            await expect(simpleEigenContract.connect(staked_setter).setValidityPeriods(newSignaturePeriod, newAPKPeriod))
+            await expect(simpleEigenContract.connect(staked_setter).setValidityPeriods(newAPKPeriod))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
 
-            await simpleEigenContract.connect(validity_setter).setValidityPeriods(newSignaturePeriod, newAPKPeriod);
-            const validityPeriod = await simpleEigenContract.signatureValidityPeriod();
-            expect(validityPeriod).to.be.equal(newSignaturePeriod);
+            await simpleEigenContract.connect(validity_setter).setValidityPeriods(newAPKPeriod);
             const apkValidityPeriod = await simpleEigenContract.apkValidityPeriod();
             expect(apkValidityPeriod).to.be.equal(newAPKPeriod);
         });

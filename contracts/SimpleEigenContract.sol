@@ -18,12 +18,10 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
 
     /// @dev Gas cost for the pairing equality check
     uint256 internal constant PAIRING_EQUALITY_CHECK_GAS = 120000;
-    /// @notice Duration for which a signature is considered valid
-    uint256 public signatureValidityPeriod;
     /// @notice Duration for which an APK is considered valid
     uint256 public apkValidityPeriod;
     /// @notice The last nonce used to add, delete, or update OPs
-    SynchronizationNonce lastNonce;
+    SynchronizationNonce public lastNonce;
     /// @notice Current aggregated G1 point
     BN254.G1Point public aggregatedG1;
     /// @notice Total amount staked by all operators
@@ -58,7 +56,6 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         setAggregatedG1History(aggregatedG1, 0, 0);
         totalStaked = 0;
         minStakedLimit = 0;
-        signatureValidityPeriod = 5 minutes;
         apkValidityPeriod = 5 minutes;
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
     }
@@ -91,9 +88,6 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
     ) public override {
         if (sigTimestamp_ > block.timestamp) {
             revert InvalidTimestamp();
-        }
-        if (block.timestamp - sigTimestamp_ > signatureValidityPeriod) {
-            revert SignatureExpired();
         }
         if (nonce_.nonce != lastNonce.nonce + 1 || nonce_.blockNumber < lastNonce.blockNumber) {
             revert InvalidNonce();
@@ -132,9 +126,6 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         if (sigTimestamp_ > block.timestamp) {
             revert InvalidTimestamp();
         }
-        if (block.timestamp - sigTimestamp_ > signatureValidityPeriod) {
-            revert SignatureExpired();
-        }
         if (nonce_.nonce != lastNonce.nonce + 1 || nonce_.blockNumber < lastNonce.blockNumber) {
             revert InvalidNonce();
         }
@@ -165,9 +156,6 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
     ) public override {
         if (sigTimestamp_ > block.timestamp) {
             revert InvalidTimestamp();
-        }
-        if (block.timestamp - sigTimestamp_ > signatureValidityPeriod) {
-            revert SignatureExpired();
         }
         if (nonce_.nonce != lastNonce.nonce + 1 || nonce_.blockNumber < lastNonce.blockNumber) {
             revert InvalidNonce();
@@ -242,7 +230,7 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
     }
 
     /// @inheritdoc ISimpleEigenContract
-    function get_operators(uint32 from_, uint32 to_) external view override returns (address[] memory addresses){
+    function getOperators(uint32 from_, uint32 to_) external view override returns (Operator[] memory operators){
         if (to_ == 0){
             to_ = lastIndex;
         }
@@ -252,9 +240,9 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         if (from_ > lastIndex || to_ > lastIndex || to_ < from_){
             revert InvalidIndex();
         }
-        addresses = new address[](to_ - from_);
+        operators = new Operator[](to_ - from_ + 1);
         for (uint32 i = from_; i <= to_; i++){
-            addresses[i - from_] = index2address[i];
+            operators[i - from_] = operatorInfos[i];
         }
     }
 
@@ -263,10 +251,9 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
     *******************************************************************************/
 
     /// @inheritdoc ISimpleEigenContract
-    function setValidityPeriods(uint256 signatureValidityPeriod_, uint256 apkValidityPeriod_) public override onlyRole(SET_VALIDITY_PERIOD_ROLE) {
-        signatureValidityPeriod = signatureValidityPeriod_;
+    function setValidityPeriods(uint256 apkValidityPeriod_) public override onlyRole(SET_VALIDITY_PERIOD_ROLE) {
         apkValidityPeriod = apkValidityPeriod_;
-        emit ValidityPeriodsUpdated(signatureValidityPeriod_, apkValidityPeriod_);
+        emit ValidityPeriodsUpdated(apkValidityPeriod_);
     }
 
     /// @inheritdoc ISimpleEigenContract

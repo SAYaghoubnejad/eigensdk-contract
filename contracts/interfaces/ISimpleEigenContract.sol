@@ -47,7 +47,7 @@ interface ISimpleEigenContract {
     /// @notice Event emitted when an operator is updated
     event OperatorUpdated(uint32 indexed index, address indexed opAddress, string socket, uint256 stakedAmount, BN254.G1Point pubG1, BN254.G2Point pubG2);
     /// @notice Event emitted when validity periods are updated
-    event ValidityPeriodsUpdated(uint256 signatureValidityPeriod, uint256 apkValidityPeriod);
+    event ValidityPeriodsUpdated(uint256 apkValidityPeriod);
     /// @notice Event emitted when minimum staked limit is updated
     event MinStakedLimitUpdated(uint256 minStakedLimit);
 
@@ -57,8 +57,6 @@ interface ISimpleEigenContract {
     error OperatorNotExisted();
     /// @notice Thrown when a signature is invalid
     error InvalidSignature();
-    /// @notice Thrown when a signature has expired
-    error SignatureExpired();
     /// @notice Thrown when the provided timestamp is invalid
     error InvalidTimestamp();
     /// @notice Thrown when an invalid operator index is provided
@@ -149,10 +147,9 @@ interface ISimpleEigenContract {
         Signature memory signature_
     ) external view returns (bool pairingSuccessful, bool signatureIsValid);
 
-    /// @notice Update validity period for signature and APK
-    /// @param signatureValidityPeriod_ New signature validity period
+    /// @notice Update validity period for APK
     /// @param apkValidityPeriod_ New APK validity period
-    function setValidityPeriods(uint256 signatureValidityPeriod_, uint256 apkValidityPeriod_) external;
+    function setValidityPeriods(uint256 apkValidityPeriod_) external;
 
     /// @notice Update minimum staked limit
     /// @param minStakedLimit_ New minimum limit for staked amount
@@ -161,6 +158,6 @@ interface ISimpleEigenContract {
     /// @notice Get operators within a specified range
     /// @param from_ The starting index of the range (inclusive)
     /// @param to_ The ending index of the range (exclusive)
-    /// @return addresses An array of operator addresses within the specified range
-    function get_operators(uint32 from_, uint32 to_) external view returns (address[] memory addresses);
+    /// @return operators An array of operator infos within the specified range
+    function getOperators(uint32 from_, uint32 to_) external view returns (Operator[] memory operators);
 }
