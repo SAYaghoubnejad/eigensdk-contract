@@ -63,8 +63,8 @@ describe("SimpleEigenContract", () => {
             const totalStaked = await simpleEigenContract.totalStaked();
             expect(totalStaked).to.equal(0);
 
-            const minStakedLimit = await simpleEigenContract.minStakedLimit();
-            expect(minStakedLimit).to.equal(0);
+            const minStakedLimit = await simpleEigenContract.minStakedRatio();
+            expect(minStakedLimit).to.equal(660000);
 
             const apkValidityPeriod = await simpleEigenContract.apkValidityPeriod();
             expect(apkValidityPeriod).to.equal(5 * 60); // 5 minutes in seconds
@@ -1321,21 +1321,21 @@ describe("SimpleEigenContract", () => {
             const op1 = {
                 opAddress: await user1.getAddress(),
                 socket: socket1,
-                stakedAmount: 1000,
+                stakedAmount: 2000,
                 pubG1: g1PointToArgs(keyPair1.pubG1),
                 pubG2: g2PointToArgs(keyPair1.pubG2)
             }
             const op2 = {
                 opAddress: await user2.getAddress(),
                 socket: socket2,
-                stakedAmount: 1000,
+                stakedAmount: 500,
                 pubG1: g1PointToArgs(keyPair2.pubG1),
                 pubG2: g2PointToArgs(keyPair2.pubG2)
             }
             const op3 = {
                 opAddress: await user3.getAddress(),
                 socket: socket3,
-                stakedAmount: 1000,
+                stakedAmount: 100,
                 pubG1: g1PointToArgs(keyPair3.pubG1),
                 pubG2: g2PointToArgs(keyPair3.pubG2)
             }
@@ -1382,7 +1382,7 @@ describe("SimpleEigenContract", () => {
             const op2 = {
                 opAddress: await user2.getAddress(),
                 socket: socket2,
-                stakedAmount: 1000,
+                stakedAmount: 10,
                 pubG1: g1PointToArgs(keyPair2.pubG1),
                 pubG2: g2PointToArgs(keyPair2.pubG2)
             }
@@ -1610,7 +1610,7 @@ describe("SimpleEigenContract", () => {
             await simpleEigenContract.connect(dao).addOperatorDAO(op3);
 
             // Set staking limit
-            await simpleEigenContract.connect(staked_setter).setMinStakedLimit(2500);
+            await simpleEigenContract.connect(staked_setter).setMinStakedRatio(1000000);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1672,7 +1672,7 @@ describe("SimpleEigenContract", () => {
             await simpleEigenContract.connect(dao).addOperatorDAO(op3);
 
             // Set staking limit
-            await simpleEigenContract.connect(staked_setter).setMinStakedLimit(2500);
+            await simpleEigenContract.connect(staked_setter).setMinStakedRatio(990000);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1730,7 +1730,7 @@ describe("SimpleEigenContract", () => {
             await simpleEigenContract.connect(dao).addOperatorDAO(op3);
 
             // Set staking limit
-            await simpleEigenContract.connect(staked_setter).setMinStakedLimit(1500);
+            await simpleEigenContract.connect(staked_setter).setMinStakedRatio(990000);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1788,7 +1788,7 @@ describe("SimpleEigenContract", () => {
             await simpleEigenContract.connect(dao).addOperatorDAO(op3);
 
             // Set staking limit
-            await simpleEigenContract.connect(staked_setter).setMinStakedLimit(1500);
+            await simpleEigenContract.connect(staked_setter).setMinStakedRatio(990000);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const aggregatedSignature: Signature = sign1;
@@ -1864,17 +1864,17 @@ describe("SimpleEigenContract", () => {
         });
 
         it("should only allow setter to set min staked limit", async () => {
-            const newMinStakedLimit = 1;
+            const newMinStakedRatio = 1000000;
 
-            await expect(simpleEigenContract.connect(user1).setMinStakedLimit(newMinStakedLimit))
+            await expect(simpleEigenContract.connect(user1).setMinStakedRatio(newMinStakedRatio))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
 
-            await expect(simpleEigenContract.connect(validity_setter).setMinStakedLimit(newMinStakedLimit))
+            await expect(simpleEigenContract.connect(validity_setter).setMinStakedRatio(newMinStakedRatio))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
 
-            await simpleEigenContract.connect(staked_setter).setMinStakedLimit(newMinStakedLimit);
-            const minStakedLimit = await simpleEigenContract.minStakedLimit();
-            expect(minStakedLimit).to.be.equal(newMinStakedLimit);
+            await simpleEigenContract.connect(staked_setter).setMinStakedRatio(newMinStakedRatio);
+            const minStakedLimit = await simpleEigenContract.minStakedRatio();
+            expect(minStakedLimit).to.be.equal(newMinStakedRatio);
         });
     });
 });
