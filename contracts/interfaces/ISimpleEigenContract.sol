@@ -48,8 +48,8 @@ interface ISimpleEigenContract {
     event OperatorUpdated(uint32 indexed index, address indexed opAddress, string socket, uint256 stakedAmount, BN254.G1Point pubG1, BN254.G2Point pubG2);
     /// @notice Event emitted when validity periods are updated
     event ValidityPeriodsUpdated(uint256 apkValidityPeriod);
-    /// @notice Event emitted when minimum staked limit is updated
-    event MinStakedLimitUpdated(uint256 minStakedLimit);
+    /// @notice Event emitted when minimum staked ratio is updated
+    event MinStakedRatioUpdated(uint256 minStakedRatio);
 
     /// @notice Thrown when trying to add an operator that already exists
     error OperatorAlreadyAdded();
@@ -143,9 +143,9 @@ interface ISimpleEigenContract {
     /// @param apkValidityPeriod_ New APK validity period
     function setValidityPeriods(uint256 apkValidityPeriod_) external;
 
-    /// @notice Update minimum staked limit
-    /// @param minStakedLimit_ New minimum limit for staked amount
-    function setMinStakedLimit(uint256 minStakedLimit_) external;
+    /// @notice Update minimum staked ratio
+    /// @param minStakedRatio_ New minimum ratio for staked amount
+    function setMinStakedRatio(uint256 minStakedRatio_) external;
 
     /// @notice Get operators within a specified range
     /// @param from_ The starting index of the range (inclusive)

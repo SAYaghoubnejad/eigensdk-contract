@@ -26,8 +26,10 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
     BN254.G1Point public aggregatedG1;
     /// @notice Total amount staked by all operators
     uint256 public totalStaked;
-    /// @notice Minimum required stake amount
-    uint256 public minStakedLimit;
+    /// @notice Minimum required stake amount ratio
+    uint256 public minStakedRatio;
+    /// @notice Total number of operators
+    uint256 public activeOperators;
 
     /// @notice Last assigned operator index
     uint32 public lastIndex;
@@ -55,7 +57,8 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         aggregatedG1 = BN254.G1Point(uint256(0), uint256(0));
         setAggregatedG1History(aggregatedG1, 0, 0);
         totalStaked = 0;
-        minStakedLimit = 0;
+        activeOperators = 0;
+        minStakedRatio = 660000; // 66%
         apkValidityPeriod = 5 minutes;
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
     }
@@ -187,7 +190,8 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         bytes32 msgHash_,
         Signature memory signature_
     ) public view override returns (bool pairingSuccessful, bool signatureIsValid) {
-        (uint256 apkTimestamp, uint256 stakedAmount) = getAggregatedG1History(signature_.apkG1);
+        (uint256 apkTimestamp, uint256 totalStakedAmount) = getAggregatedG1History(signature_.apkG1);
+        uint256 stakedAmount = totalStakedAmount;
         if (apkTimestamp != 0 && block.timestamp - apkTimestamp > apkValidityPeriod) {
             revert ExpiredAPK();
         }
@@ -208,7 +212,7 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
             signature_.apkG1 = signature_.apkG1.plus(apk.negate());
         }
 
-        if (stakedAmount < minStakedLimit) {
+        if (stakedAmount < (minStakedRatio * totalStakedAmount) / (10 ** 6)) {
             revert InsufficientStaked();
         }
         return _trySignatureAndApkVerification(msgHash_, signature_.apkG1, signature_.apkG2, signature_.sigma);
@@ -225,10 +229,14 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         if (from_ > lastIndex || to_ > lastIndex || to_ < from_){
             revert InvalidIndex();
         }
-        operators = new Operator[](to_ - from_ + 1);
+        uint256 missed = 0;
+        operators = new Operator[](activeOperators);
         for (uint32 i = from_; i <= to_; i++){
             if (index2address[i] != address(0)){
-                operators[i - from_] = operatorInfos[i];
+                operators[i - from_ - missed] = operatorInfos[i];
+            }
+            else{
+                missed = missed + 1;
             }
         }
     }
@@ -244,9 +252,9 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
     }
 
     /// @inheritdoc ISimpleEigenContract
-    function setMinStakedLimit(uint256 minStakedLimit_) public override onlyRole(SET_STAKE_LIMIT_ROLE) {
-        minStakedLimit = minStakedLimit_;
-        emit MinStakedLimitUpdated(minStakedLimit_);
+    function setMinStakedRatio(uint256 minStakedRatio_) public override onlyRole(SET_STAKE_LIMIT_ROLE) {
+        minStakedRatio = minStakedRatio_;
+        emit MinStakedRatioUpdated(minStakedRatio_);
     }
 
     /*******************************************************************************
@@ -290,6 +298,7 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         aggregatedG1 = aggregatedG1.plus(op_.pubG1);
         totalStaked += op_.stakedAmount;
         setAggregatedG1History(aggregatedG1, 0, totalStaked);
+        activeOperators = activeOperators + 1;
         emit OperatorAdded(lastIndex, op_.opAddress, op_.socket, op_.stakedAmount, op_.pubG1, op_.pubG2);
     }
 
@@ -307,6 +316,7 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
         delete address2Index[opAddress_];
         delete operatorInfos[index];
         delete index2address[index];
+        activeOperators = activeOperators - 1;
         emit OperatorDeleted(index, opAddress_);
     }
 

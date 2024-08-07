@@ -30,6 +30,8 @@ async function main() {
     });
     await contract.waitForDeployment();
     console.log("SimpleEigenContract deployed to:", await contract.getAddress());
+    const DAO_ROLE = await contract.DAO_ROLE();
+    await contract.grantRole(DAO_ROLE, deployer.address);
     await verifyContract(await contract.getAddress(), []);
 }
 
