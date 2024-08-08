@@ -173,6 +173,44 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
     }
 
     /// @inheritdoc ISimpleEigenContract
+    function upsertOperatorSig(
+        Operator calldata op_,
+        Signature memory signature_,
+        SynchronizationNonce calldata nonce_
+    ) public override {
+        if (nonce_.nonce != lastNonce.nonce + 1 || nonce_.blockNumber < lastNonce.blockNumber) {
+            revert InvalidNonce();
+        }
+        bytes32 _hash = keccak256(abi.encodePacked(
+            Action.Upsert,
+            op_.opAddress,
+            op_.socket,
+            op_.stakedAmount,
+            op_.pubG1.X,
+            op_.pubG1.Y,
+            op_.pubG2.X,
+            op_.pubG2.Y,
+            nonce_.nonce,
+            nonce_.blockNumber,
+            nonce_.txNumber,
+            nonce_.eventNumber
+        ));
+        bool siganatureIsValid;
+        (, siganatureIsValid) = verifySignature(_hash, signature_);
+        if (siganatureIsValid == false) {
+            revert InvalidSignature();
+        }
+        lastNonce = nonce_;
+        uint32 index = address2Index[op_.opAddress];
+        if (index == 0) {
+            _addOperator(op_);
+        }
+        else {
+            _updateOperator(op_);
+        }
+    }
+
+    /// @inheritdoc ISimpleEigenContract
     function setAggregatedG1History(BN254.G1Point memory point_, uint256 value_, uint256 totalStakedAmount_) public override {
         bytes32 key = keccak256(abi.encode(point_));
         aggregatedG1History[key] = value_;
