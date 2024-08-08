@@ -46,7 +46,7 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
 
     /// @notice Mapping to store aggregated history for G1 points
     /// @dev The key is a bytes32 hash of the G1Point, and the value is a uint256
-    mapping(bytes32 => uint256) public totalStakedHistoryHistory;
+    mapping(bytes32 => uint256) public totalStakedHistory;
 
     /*******************************************************************************
                                 PUBLIC FUNCTIONS
@@ -214,13 +214,13 @@ contract SimpleEigenContract is ISimpleEigenContract, AccessControlUpgradeable {
     function setAggregatedG1History(BN254.G1Point memory point_, uint256 value_, uint256 totalStakedAmount_) public override {
         bytes32 key = keccak256(abi.encode(point_));
         aggregatedG1History[key] = value_;
-        totalStakedHistoryHistory[key] = totalStakedAmount_;
+        totalStakedHistory[key] = totalStakedAmount_;
     }
 
     /// @inheritdoc ISimpleEigenContract
     function getAggregatedG1History(BN254.G1Point memory point_) public view override returns (uint256, uint256) {
         bytes32 key = keccak256(abi.encode(point_));
-        return (aggregatedG1History[key], totalStakedHistoryHistory[key]);
+        return (aggregatedG1History[key], totalStakedHistory[key]);
     }
 
     /// @inheritdoc ISimpleEigenContract
