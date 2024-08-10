@@ -1,7 +1,7 @@
 import {SignerWithAddress} from "@nomicfoundation/hardhat-ethers/signers";
 import {ethers, upgrades} from "hardhat";
 import {expect} from "chai";
-import {SimpleEigenContract} from "../typechain-types";
+import {OperatorRegistry} from "../typechain-types";
 import {ZeroAddress} from "ethers";
 import {
     init as attestationInit,
@@ -11,10 +11,10 @@ import {
     Signature
 } from '../eigensdk-js/src/crypto/bls/attestation';
 import {g1PointToArgs, g2PointToArgs} from '../eigensdk-js/src/utils/helpers';
-import {BN254, ISimpleEigenContract} from '../typechain-types/contracts/SimpleEigenContract';
+import {BN254, ISimpleEigenContract} from '../typechain-types/contracts/OperatorRegistry';
 
-describe("SimpleEigenContract", () => {
-    let simpleEigenContract: SimpleEigenContract;
+describe("OperatorRegistry", () => {
+    let operatorRegistryContract: OperatorRegistry;
     let admin: SignerWithAddress;
     let dao: SignerWithAddress;
     let user1: SignerWithAddress;
@@ -38,48 +38,48 @@ describe("SimpleEigenContract", () => {
     beforeEach(async () => {
         [admin, dao, user1, user2, user3, validity_setter, staked_setter] = await ethers.getSigners();
 
-        const SimpleEigenContractFactory = await ethers.getContractFactory("SimpleEigenContract");
-        simpleEigenContract = (await upgrades.deployProxy(SimpleEigenContractFactory, [await admin.getAddress()])) as unknown as SimpleEigenContract;
-        await simpleEigenContract.waitForDeployment();
+        const operatorRegistryFactory = await ethers.getContractFactory("OperatorRegistry");
+        operatorRegistryContract = (await upgrades.deployProxy(operatorRegistryFactory, [await admin.getAddress()])) as unknown as OperatorRegistry;
+        await operatorRegistryContract.waitForDeployment();
 
         // Grant DAO_ROLE to dao signer
-        await simpleEigenContract.connect(admin).grantRole(await simpleEigenContract.DAO_ROLE(), await dao.getAddress());
+        await operatorRegistryContract.connect(admin).grantRole(await operatorRegistryContract.DAO_ROLE(), await dao.getAddress());
         // Grant SET_VALIDITY_PERIOD_ROLE to setter signer
-        await simpleEigenContract.connect(admin).grantRole(await simpleEigenContract.SET_VALIDITY_PERIOD_ROLE(), await validity_setter.getAddress());
+        await operatorRegistryContract.connect(admin).grantRole(await operatorRegistryContract.SET_VALIDITY_PERIOD_ROLE(), await validity_setter.getAddress());
         // Grant SET_STAKE_LIMIT_ROLE to setter signer
-        await simpleEigenContract.connect(admin).grantRole(await simpleEigenContract.SET_STAKE_LIMIT_ROLE(), await staked_setter.getAddress());
+        await operatorRegistryContract.connect(admin).grantRole(await operatorRegistryContract.SET_STAKE_LIMIT_ROLE(), await staked_setter.getAddress());
     });
 
     describe("Initialization", () => {
         it("should set the admin correctly", async () => {
-            expect(await simpleEigenContract.hasRole(await simpleEigenContract.DEFAULT_ADMIN_ROLE(), await admin.getAddress())).to.be.true;
+            expect(await operatorRegistryContract.hasRole(await operatorRegistryContract.DEFAULT_ADMIN_ROLE(), await admin.getAddress())).to.be.true;
         });
 
         it("Should set initial values correctly", async function () {
-            const aggregatedG1 = await simpleEigenContract.aggregatedG1();
+            const aggregatedG1 = await operatorRegistryContract.aggregatedG1();
             expect(aggregatedG1.X).to.equal(0);
             expect(aggregatedG1.Y).to.equal(0);
 
-            const totalStaked = await simpleEigenContract.totalStaked();
+            const totalStaked = await operatorRegistryContract.totalStaked();
             expect(totalStaked).to.equal(0);
 
-            const minStakedLimit = await simpleEigenContract.minStakedRatio();
+            const minStakedLimit = await operatorRegistryContract.minStakedRatio();
             expect(minStakedLimit).to.equal(660000);
 
-            const apkValidityPeriod = await simpleEigenContract.apkValidityPeriod();
+            const apkValidityPeriod = await operatorRegistryContract.apkValidityPeriod();
             expect(apkValidityPeriod).to.equal(5 * 60); // 5 minutes in seconds
         });
 
         it("Should set initial aggregatedG1History and totalStakedHistoryHistory correctly", async function () {
             const zeroPoint = {X: 0, Y: 0};
-            const [timestamp, staked] = await simpleEigenContract.getAggregatedG1History(zeroPoint);
+            const [timestamp, staked] = await operatorRegistryContract.getAggregatedG1History(zeroPoint);
             expect(timestamp).to.equal(0);
             expect(staked).to.equal(0);
         });
 
 
         it("Should revert when trying to initialize again", async function () {
-            await expect(simpleEigenContract.initialize(user1.address))
+            await expect(operatorRegistryContract.initialize(user1.address))
                 .to.be.revertedWith("Initializable: contract is already initialized");
         });
     });
@@ -102,15 +102,15 @@ describe("SimpleEigenContract", () => {
                 pubG1: mockG1Point,
                 pubG2: mockG2Point
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op);
 
-            const operatorInfo = await simpleEigenContract.operatorInfos(1);
+            const operatorInfo = await operatorRegistryContract.operatorInfos(1);
             expect(operatorInfo.opAddress).to.equal(await user1.getAddress());
             expect(operatorInfo.stakedAmount).to.equal(1000);
             expect(operatorInfo.pubG1.X).to.equal(mockG1Point.X);
             expect(operatorInfo.pubG1.Y).to.equal(mockG1Point.Y);
 
-            const [apkTimestamp, stakedAmount] = await simpleEigenContract.getAggregatedG1History(mockG1Point);
+            const [apkTimestamp, stakedAmount] = await operatorRegistryContract.getAggregatedG1History(mockG1Point);
             expect(stakedAmount).to.be.equal(1000);
             expect(apkTimestamp).to.be.equal(0);
         });
@@ -130,9 +130,9 @@ describe("SimpleEigenContract", () => {
                 pubG1: mockG1Point,
                 pubG2: mockG2Point
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op);
-            await expect(simpleEigenContract.connect(dao).addOperatorDAO(newOp))
-                .to.be.revertedWithCustomError(simpleEigenContract, "OperatorAlreadyAdded");
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op);
+            await expect(operatorRegistryContract.connect(dao).addOperatorDAO(newOp))
+                .to.be.revertedWithCustomError(operatorRegistryContract, "OperatorAlreadyAdded");
         });
 
         it("should delete an operator", async () => {
@@ -143,25 +143,25 @@ describe("SimpleEigenContract", () => {
                 pubG1: mockG1Point,
                 pubG2: mockG2Point
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op);
-            const tx = await simpleEigenContract.connect(dao).deleteOperatorDAO(await user1.getAddress());
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op);
+            const tx = await operatorRegistryContract.connect(dao).deleteOperatorDAO(await user1.getAddress());
             const receipt = await tx.wait();
             const block = await ethers.provider.getBlock(receipt!.blockNumber);
             const deleteBlockTimestamp = block!.timestamp;
 
-            const operatorInfo = await simpleEigenContract.operatorInfos(1);
+            const operatorInfo = await operatorRegistryContract.operatorInfos(1);
             expect(operatorInfo.opAddress).to.equal(ZeroAddress);
-            const operatorIndex = await simpleEigenContract.address2Index(await user1.getAddress());
+            const operatorIndex = await operatorRegistryContract.address2Index(await user1.getAddress());
             expect(operatorIndex).to.equal(0);
 
-            const [apkTimestamp, stakedAmount] = await simpleEigenContract.getAggregatedG1History(mockG1Point);
+            const [apkTimestamp, stakedAmount] = await operatorRegistryContract.getAggregatedG1History(mockG1Point);
             expect(stakedAmount).to.be.equal(2000);
             expect(apkTimestamp).to.be.equal(deleteBlockTimestamp);
         });
 
         it("should not allow delete a non-existent operator", async () => {
-            await expect(simpleEigenContract.connect(dao).deleteOperatorDAO(await user1.getAddress()))
-                .to.be.revertedWithCustomError(simpleEigenContract, "OperatorNotExisted");
+            await expect(operatorRegistryContract.connect(dao).deleteOperatorDAO(await user1.getAddress()))
+                .to.be.revertedWithCustomError(operatorRegistryContract, "OperatorNotExisted");
         });
 
         it("should update an operator", async () => {
@@ -172,7 +172,7 @@ describe("SimpleEigenContract", () => {
                 pubG1: mockG1Point,
                 pubG2: mockG2Point
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op);
 
             const newKeyPair = KeyPair.fromString("04");
             const newG1Point: BN254.G1PointStruct = g1PointToArgs(newKeyPair.pubG1);
@@ -184,21 +184,21 @@ describe("SimpleEigenContract", () => {
                 pubG1: newG1Point,
                 pubG2: newG2Point
             }
-            const tx = await simpleEigenContract.connect(dao).updateOperatorDAO(newOp);
+            const tx = await operatorRegistryContract.connect(dao).updateOperatorDAO(newOp);
             const receipt = await tx.wait();
             const block = await ethers.provider.getBlock(receipt!.blockNumber);
             const updateBlockTimestamp = block!.timestamp;
 
-            const operatorInfo = await simpleEigenContract.operatorInfos(1);
+            const operatorInfo = await operatorRegistryContract.operatorInfos(1);
             expect(operatorInfo.stakedAmount).to.equal(2000);
             expect(operatorInfo.pubG1.X).to.equal(newG1Point.X);
             expect(operatorInfo.pubG1.Y).to.equal(newG1Point.Y);
             expect(operatorInfo.socket).to.equal(socket2);
 
-            const [apkTimestamp, stakedAmount] = await simpleEigenContract.getAggregatedG1History(mockG1Point);
+            const [apkTimestamp, stakedAmount] = await operatorRegistryContract.getAggregatedG1History(mockG1Point);
             expect(stakedAmount).to.be.equal(1000);
             expect(apkTimestamp).to.be.equal(updateBlockTimestamp);
-            const [apkTimestamp2, stakedAmount2] = await simpleEigenContract.getAggregatedG1History(newG1Point);
+            const [apkTimestamp2, stakedAmount2] = await operatorRegistryContract.getAggregatedG1History(newG1Point);
             expect(stakedAmount2).to.be.equal(2000);
             expect(apkTimestamp2).to.be.equal(0);
         });
@@ -211,8 +211,8 @@ describe("SimpleEigenContract", () => {
                 pubG1: mockG1Point,
                 pubG2: mockG2Point
             }
-            await expect(simpleEigenContract.connect(dao).updateOperatorDAO(op))
-                .to.be.revertedWithCustomError(simpleEigenContract, "OperatorNotExisted");
+            await expect(operatorRegistryContract.connect(dao).updateOperatorDAO(op))
+                .to.be.revertedWithCustomError(operatorRegistryContract, "OperatorNotExisted");
         });
     });
 
@@ -266,8 +266,8 @@ describe("SimpleEigenContract", () => {
             }
 
             // Add operators
-            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op1);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op2);
             nonce1 = {
                 nonce: 1,
                 blockNumber: (await ethers.provider.getBlock("latest"))!.number,
@@ -333,7 +333,7 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            const tx = await simpleEigenContract.connect(user3).addOperatorSig(
+            const tx = await operatorRegistryContract.connect(user3).addOperatorSig(
                 op,
                 signature,
                 nonce1
@@ -342,7 +342,7 @@ describe("SimpleEigenContract", () => {
             const block = await ethers.provider.getBlock(receipt!.blockNumber);
             const addBlockTimestamp = block!.timestamp;
 
-            const operatorInfo = await simpleEigenContract.operatorInfos(3);
+            const operatorInfo = await operatorRegistryContract.operatorInfos(3);
             expect(operatorInfo.opAddress).to.equal(await user3.getAddress());
             expect(operatorInfo.stakedAmount).to.equal(op.stakedAmount);
             expect(operatorInfo.pubG1.X).to.equal(encodedPair3G1.X);
@@ -352,11 +352,11 @@ describe("SimpleEigenContract", () => {
             expect(operatorInfo.pubG2.X[1]).to.equal(encodedPair3G2.X[1]);
             expect(operatorInfo.pubG2.Y[1]).to.equal(encodedPair3G2.Y[1]);
 
-            const [apkTimestamp, totaSstakedAmount] = await simpleEigenContract.getAggregatedG1History(g1PointToArgs(aggregatedPubG1));
+            const [apkTimestamp, totaSstakedAmount] = await operatorRegistryContract.getAggregatedG1History(g1PointToArgs(aggregatedPubG1));
             expect(totaSstakedAmount).to.be.equal(initalStake1 + initalStake2);
             expect(apkTimestamp).to.be.equal(addBlockTimestamp);
 
-            const [apkTimestamp2, totaSstakedAmount2] = await simpleEigenContract.getAggregatedG1History(g1PointToArgs(aggregatedPubG1.add(keyPair3.pubG1)));
+            const [apkTimestamp2, totaSstakedAmount2] = await operatorRegistryContract.getAggregatedG1History(g1PointToArgs(aggregatedPubG1.add(keyPair3.pubG1)));
             expect(totaSstakedAmount2).to.be.equal(op.stakedAmount + initalStake1 + initalStake2);
             expect(apkTimestamp2).to.be.equal(0);
         });
@@ -423,11 +423,11 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            await expect(simpleEigenContract.connect(user3).addOperatorSig(
+            await expect(operatorRegistryContract.connect(user3).addOperatorSig(
                 op,
                 signature,
                 nonce2
-            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidNonce");
+            )).to.be.revertedWithCustomError(operatorRegistryContract, "InvalidNonce");
         });
 
         it("should not allow add an operator with update signature", async () => {
@@ -486,11 +486,11 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            await expect(simpleEigenContract.connect(user3).addOperatorSig(
+            await expect(operatorRegistryContract.connect(user3).addOperatorSig(
                 op,
                 signature,
                 nonce1
-            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidSignature");
+            )).to.be.revertedWithCustomError(operatorRegistryContract, "InvalidSignature");
         });
 
         it("should not allow add an operator with invalid signature", async () => {
@@ -549,11 +549,11 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            await expect(simpleEigenContract.connect(user3).addOperatorSig(
+            await expect(operatorRegistryContract.connect(user3).addOperatorSig(
                 op,
                 signature,
                 nonce1
-            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidSignature");
+            )).to.be.revertedWithCustomError(operatorRegistryContract, "InvalidSignature");
         });
 
         it("should delete an operator", async () => {
@@ -593,7 +593,7 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            const tx = await simpleEigenContract.connect(user3).deleteOperatorSig(
+            const tx = await operatorRegistryContract.connect(user3).deleteOperatorSig(
                 await user2.getAddress(),
                 signature,
                 nonce1
@@ -602,16 +602,16 @@ describe("SimpleEigenContract", () => {
             const block = await ethers.provider.getBlock(receipt!.blockNumber);
             const deleteBlockTimestamp = block!.timestamp;
 
-            const operatorInfo = await simpleEigenContract.operatorInfos(2);
+            const operatorInfo = await operatorRegistryContract.operatorInfos(2);
             expect(operatorInfo.opAddress).to.equal(ZeroAddress);
-            const operatorIndex = await simpleEigenContract.address2Index(await user2.getAddress());
+            const operatorIndex = await operatorRegistryContract.address2Index(await user2.getAddress());
             expect(operatorIndex).to.equal(0);
 
-            const [apkTimestamp, stakedAmount] = await simpleEigenContract.getAggregatedG1History(g1PointToArgs(aggregatedPubG1));
+            const [apkTimestamp, stakedAmount] = await operatorRegistryContract.getAggregatedG1History(g1PointToArgs(aggregatedPubG1));
             expect(stakedAmount).to.be.equal(initalStake1 + initalStake2);
             expect(apkTimestamp).to.be.equal(deleteBlockTimestamp);
 
-            const [apkTimestamp2, stakedAmount2] = await simpleEigenContract.getAggregatedG1History(encodedPair1G1);
+            const [apkTimestamp2, stakedAmount2] = await operatorRegistryContract.getAggregatedG1History(encodedPair1G1);
             expect(stakedAmount2).to.be.equal(initalStake1);
             expect(apkTimestamp2).to.be.equal(0);
         });
@@ -659,11 +659,11 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            await expect(simpleEigenContract.connect(user3).deleteOperatorSig(
+            await expect(operatorRegistryContract.connect(user3).deleteOperatorSig(
                 await user2.getAddress(),
                 signature,
                 nonce2
-            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidNonce");
+            )).to.be.revertedWithCustomError(operatorRegistryContract, "InvalidNonce");
         });
 
         it("should not allow delete with invalid signature", async () => {
@@ -701,12 +701,12 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            await expect(simpleEigenContract.connect(user3).deleteOperatorSig(
+            await expect(operatorRegistryContract.connect(user3).deleteOperatorSig(
                 await user3.getAddress(),
                 signature,
                 nonce1
             ))
-                .to.be.revertedWithCustomError(simpleEigenContract, "InvalidSignature");
+                .to.be.revertedWithCustomError(operatorRegistryContract, "InvalidSignature");
         });
 
         it("should update an operator", async () => {
@@ -765,7 +765,7 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            const tx = await simpleEigenContract.connect(user3).updateOperatorSig(
+            const tx = await operatorRegistryContract.connect(user3).updateOperatorSig(
                 op,
                 signature,
                 nonce1
@@ -774,7 +774,7 @@ describe("SimpleEigenContract", () => {
             const block = await ethers.provider.getBlock(receipt!.blockNumber);
             const updateBlockTimestamp = block!.timestamp;
 
-            const operatorInfo = await simpleEigenContract.operatorInfos(2);
+            const operatorInfo = await operatorRegistryContract.operatorInfos(2);
             expect(operatorInfo.opAddress).to.equal(await user2.getAddress());
             expect(operatorInfo.stakedAmount).to.equal(op.stakedAmount);
             expect(operatorInfo.pubG1.X).to.equal(encodedPair3G1.X);
@@ -784,10 +784,10 @@ describe("SimpleEigenContract", () => {
             expect(operatorInfo.pubG2.X[1]).to.equal(encodedPair3G2.X[1]);
             expect(operatorInfo.pubG2.Y[1]).to.equal(encodedPair3G2.Y[1]);
 
-            const [apkTimestamp, totalStakedAmount] = await simpleEigenContract.getAggregatedG1History(g1PointToArgs(aggregatedPubG1));
+            const [apkTimestamp, totalStakedAmount] = await operatorRegistryContract.getAggregatedG1History(g1PointToArgs(aggregatedPubG1));
             expect(totalStakedAmount).to.be.equal(initalStake1 + initalStake2);
             expect(apkTimestamp).to.be.equal(updateBlockTimestamp);
-            const [apkTimestamp2, totalStakedAmount2] = await simpleEigenContract.getAggregatedG1History(g1PointToArgs(keyPair1.pubG1.add(keyPair3.pubG1)));
+            const [apkTimestamp2, totalStakedAmount2] = await operatorRegistryContract.getAggregatedG1History(g1PointToArgs(keyPair1.pubG1.add(keyPair3.pubG1)));
             expect(totalStakedAmount2).to.be.equal(initalStake1 + op.stakedAmount);
             expect(apkTimestamp2).to.be.equal(0);
         });
@@ -854,11 +854,11 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            await expect(simpleEigenContract.connect(user3).updateOperatorSig(
+            await expect(operatorRegistryContract.connect(user3).updateOperatorSig(
                 op,
                 signature,
                 nonce2
-            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidNonce");
+            )).to.be.revertedWithCustomError(operatorRegistryContract, "InvalidNonce");
         });
 
         it("should not allow update an operator with invalid signature", async () => {
@@ -917,11 +917,11 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            await expect(simpleEigenContract.connect(user3).updateOperatorSig(
+            await expect(operatorRegistryContract.connect(user3).updateOperatorSig(
                 op,
                 signature,
                 nonce1
-            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidSignature");
+            )).to.be.revertedWithCustomError(operatorRegistryContract, "InvalidSignature");
         });
 
         it("should not allow update an operator with add signature", async () => {
@@ -980,11 +980,11 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            await expect(simpleEigenContract.connect(user3).updateOperatorSig(
+            await expect(operatorRegistryContract.connect(user3).updateOperatorSig(
                 op,
                 signature,
                 nonce1
-            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidSignature");
+            )).to.be.revertedWithCustomError(operatorRegistryContract, "InvalidSignature");
         });
     });
 
@@ -1011,8 +1011,8 @@ describe("SimpleEigenContract", () => {
                 pubG1: g1PointToArgs(keyPair2.pubG1),
                 pubG2: g2PointToArgs(keyPair2.pubG2)
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op1);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op2);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1027,7 +1027,7 @@ describe("SimpleEigenContract", () => {
                 nonSignerIndices: []
             }
 
-            const [pairingSuccessful, signatureIsValid] = await simpleEigenContract.verifySignature(
+            const [pairingSuccessful, signatureIsValid] = await operatorRegistryContract.verifySignature(
                 msgHash,
                 signature
             );
@@ -1059,8 +1059,8 @@ describe("SimpleEigenContract", () => {
                 pubG1: g1PointToArgs(keyPair2.pubG1),
                 pubG2: g2PointToArgs(keyPair2.pubG2)
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op1);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op2);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const invalidSignature: Signature = sign1.add(sign1);
@@ -1073,7 +1073,7 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(invalidSignature),
                 nonSignerIndices: []
             }
-            const [pairingSuccessful, signatureIsValid] = await simpleEigenContract.verifySignature(
+            const [pairingSuccessful, signatureIsValid] = await operatorRegistryContract.verifySignature(
                 msgHash,
                 signature
             );
@@ -1113,9 +1113,9 @@ describe("SimpleEigenContract", () => {
                 pubG1: g1PointToArgs(keyPair3.pubG1),
                 pubG2: g2PointToArgs(keyPair3.pubG2)
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op1);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op2);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op3);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1129,7 +1129,7 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: [3]
             }
-            const [pairingSuccessful, signatureIsValid] = await simpleEigenContract.verifySignature(
+            const [pairingSuccessful, signatureIsValid] = await operatorRegistryContract.verifySignature(
                 msgHash,
                 signature
             );
@@ -1169,9 +1169,9 @@ describe("SimpleEigenContract", () => {
                 pubG1: g1PointToArgs(keyPair3.pubG1),
                 pubG2: g2PointToArgs(keyPair3.pubG2)
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op1);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op2);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op3);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1185,7 +1185,7 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            const [pairingSuccessful, signatureIsValid] = await simpleEigenContract.verifySignature(
+            const [pairingSuccessful, signatureIsValid] = await operatorRegistryContract.verifySignature(
                 msgHash,
                 signature
             );
@@ -1225,9 +1225,9 @@ describe("SimpleEigenContract", () => {
                 pubG1: g1PointToArgs(keyPair3.pubG1),
                 pubG2: g2PointToArgs(keyPair3.pubG2)
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op1);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op2);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op3);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1244,10 +1244,10 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            await expect(simpleEigenContract.verifySignature(
+            await expect(operatorRegistryContract.verifySignature(
                 msgHash,
                 signature
-            )).to.be.revertedWithCustomError(simpleEigenContract, "ExpiredAPK");
+            )).to.be.revertedWithCustomError(operatorRegistryContract, "ExpiredAPK");
         });
 
         it("should verify signature with current APK", async () => {
@@ -1280,9 +1280,9 @@ describe("SimpleEigenContract", () => {
                 pubG1: g1PointToArgs(keyPair3.pubG1),
                 pubG2: g2PointToArgs(keyPair3.pubG2)
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op1);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op2);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op3);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1300,7 +1300,7 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            const [pairingSuccessful, signatureIsValid] = await simpleEigenContract.verifySignature(
+            const [pairingSuccessful, signatureIsValid] = await operatorRegistryContract.verifySignature(
                 msgHash,
                 signature
             );
@@ -1339,9 +1339,9 @@ describe("SimpleEigenContract", () => {
                 pubG1: g1PointToArgs(keyPair3.pubG1),
                 pubG2: g2PointToArgs(keyPair3.pubG2)
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op1);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op2);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op3);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const aggregatedSignature: Signature = sign1;
@@ -1354,7 +1354,7 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: [2, 3]
             }
-            const [pairingSuccessful, signatureIsValid] = await simpleEigenContract.verifySignature(
+            const [pairingSuccessful, signatureIsValid] = await operatorRegistryContract.verifySignature(
                 msgHash,
                 signature
             );
@@ -1386,8 +1386,8 @@ describe("SimpleEigenContract", () => {
                 pubG1: g1PointToArgs(keyPair2.pubG1),
                 pubG2: g2PointToArgs(keyPair2.pubG2)
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op1);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op2);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1401,7 +1401,7 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: [2]
             }
-            const [pairingSuccessful, signatureIsValid] = await simpleEigenContract.verifySignature(
+            const [pairingSuccessful, signatureIsValid] = await operatorRegistryContract.verifySignature(
                 msgHash,
                 signature
             );
@@ -1441,9 +1441,9 @@ describe("SimpleEigenContract", () => {
                 pubG1: g1PointToArgs(keyPair3.pubG1),
                 pubG2: g2PointToArgs(keyPair3.pubG2)
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op1);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op2);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op3);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1457,7 +1457,7 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            const [pairingSuccessful, signatureIsValid] = await simpleEigenContract.verifySignature(
+            const [pairingSuccessful, signatureIsValid] = await operatorRegistryContract.verifySignature(
                 msgHash,
                 signature
             );
@@ -1489,8 +1489,8 @@ describe("SimpleEigenContract", () => {
                 pubG1: g1PointToArgs(keyPair2.pubG1),
                 pubG2: g2PointToArgs(keyPair2.pubG2)
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op1);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op2);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1504,10 +1504,10 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: [0]
             }
-            await expect(simpleEigenContract.verifySignature(
+            await expect(operatorRegistryContract.verifySignature(
                 msgHash,
                 signature
-            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidOperatorIndex");
+            )).to.be.revertedWithCustomError(operatorRegistryContract, "InvalidOperatorIndex");
 
             const signature2: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
@@ -1515,10 +1515,10 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: [2, 0]
             }
-            await expect(simpleEigenContract.verifySignature(
+            await expect(operatorRegistryContract.verifySignature(
                 msgHash,
                 signature2
-            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidOperatorIndex");
+            )).to.be.revertedWithCustomError(operatorRegistryContract, "InvalidOperatorIndex");
         });
 
         it("should not verify signature with non-registered operator as non-signers", async () => {
@@ -1543,8 +1543,8 @@ describe("SimpleEigenContract", () => {
                 pubG1: g1PointToArgs(keyPair2.pubG1),
                 pubG2: g2PointToArgs(keyPair2.pubG2)
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op1);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op2);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1558,10 +1558,10 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: [3]
             }
-            await expect(simpleEigenContract.verifySignature(
+            await expect(operatorRegistryContract.verifySignature(
                 msgHash,
                 signature
-            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidOperatorIndex");
+            )).to.be.revertedWithCustomError(operatorRegistryContract, "InvalidOperatorIndex");
 
             const signature2: ISimpleEigenContract.SignatureStruct = {
                 apkG1: g1PointToArgs(aggregatedPubG1),
@@ -1569,10 +1569,10 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: [2, 3]
             }
-            await expect(simpleEigenContract.verifySignature(
+            await expect(operatorRegistryContract.verifySignature(
                 msgHash,
                 signature2
-            )).to.be.revertedWithCustomError(simpleEigenContract, "InvalidOperatorIndex");
+            )).to.be.revertedWithCustomError(operatorRegistryContract, "InvalidOperatorIndex");
         });
 
         it("should verify signature with current APK with sufficient staked amount", async () => {
@@ -1605,12 +1605,12 @@ describe("SimpleEigenContract", () => {
                 pubG1: g1PointToArgs(keyPair3.pubG1),
                 pubG2: g2PointToArgs(keyPair3.pubG2)
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op1);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op2);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op3);
 
             // Set staking limit
-            await simpleEigenContract.connect(staked_setter).setMinStakedRatio(1000000);
+            await operatorRegistryContract.connect(staked_setter).setMinStakedRatio(1000000);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1628,7 +1628,7 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            const [pairingSuccessful, signatureIsValid] = await simpleEigenContract.verifySignature(
+            const [pairingSuccessful, signatureIsValid] = await operatorRegistryContract.verifySignature(
                 msgHash,
                 signature
             );
@@ -1667,12 +1667,12 @@ describe("SimpleEigenContract", () => {
                 pubG1: g1PointToArgs(keyPair3.pubG1),
                 pubG2: g2PointToArgs(keyPair3.pubG2)
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op1);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op2);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op3);
 
             // Set staking limit
-            await simpleEigenContract.connect(staked_setter).setMinStakedRatio(990000);
+            await operatorRegistryContract.connect(staked_setter).setMinStakedRatio(990000);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1689,10 +1689,10 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: [3]
             }
-            await expect(simpleEigenContract.verifySignature(
+            await expect(operatorRegistryContract.verifySignature(
                 msgHash,
                 signature
-            )).to.be.revertedWithCustomError(simpleEigenContract, "InsufficientStaked");
+            )).to.be.revertedWithCustomError(operatorRegistryContract, "InsufficientStaked");
         });
 
         it("should verify signature with previous APK with sufficient staked amount", async () => {
@@ -1725,12 +1725,12 @@ describe("SimpleEigenContract", () => {
                 pubG1: g1PointToArgs(keyPair3.pubG1),
                 pubG2: g2PointToArgs(keyPair3.pubG2)
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op1);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op2);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op3);
 
             // Set staking limit
-            await simpleEigenContract.connect(staked_setter).setMinStakedRatio(990000);
+            await operatorRegistryContract.connect(staked_setter).setMinStakedRatio(990000);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const sign2: Signature = keyPair2.signMessage(msgHash);
@@ -1744,7 +1744,7 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: []
             }
-            const [pairingSuccessful, signatureIsValid] = await simpleEigenContract.verifySignature(
+            const [pairingSuccessful, signatureIsValid] = await operatorRegistryContract.verifySignature(
                 msgHash,
                 signature
             );
@@ -1783,12 +1783,12 @@ describe("SimpleEigenContract", () => {
                 pubG1: g1PointToArgs(keyPair3.pubG1),
                 pubG2: g2PointToArgs(keyPair3.pubG2)
             }
-            await simpleEigenContract.connect(dao).addOperatorDAO(op1);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op2);
-            await simpleEigenContract.connect(dao).addOperatorDAO(op3);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op1);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op2);
+            await operatorRegistryContract.connect(dao).addOperatorDAO(op3);
 
             // Set staking limit
-            await simpleEigenContract.connect(staked_setter).setMinStakedRatio(990000);
+            await operatorRegistryContract.connect(staked_setter).setMinStakedRatio(990000);
 
             const sign1: Signature = keyPair1.signMessage(msgHash);
             const aggregatedSignature: Signature = sign1;
@@ -1801,10 +1801,10 @@ describe("SimpleEigenContract", () => {
                 sigma: g1PointToArgs(aggregatedSignature),
                 nonSignerIndices: [2]
             }
-            await expect(simpleEigenContract.verifySignature(
+            await expect(operatorRegistryContract.verifySignature(
                 msgHash,
                 signature
-            )).to.be.revertedWithCustomError(simpleEigenContract, "InsufficientStaked");
+            )).to.be.revertedWithCustomError(operatorRegistryContract, "InsufficientStaked");
         });
     });
 
@@ -1826,12 +1826,12 @@ describe("SimpleEigenContract", () => {
                 pubG1: mockG1Point,
                 pubG2: mockG2Point
             }
-            await expect(simpleEigenContract.connect(user1).addOperatorDAO(op))
+            await expect(operatorRegistryContract.connect(user1).addOperatorDAO(op))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
         });
 
         it("should only allow DAO to delete operators", async () => {
-            await expect(simpleEigenContract.connect(user1).deleteOperatorDAO(await user1.getAddress()))
+            await expect(operatorRegistryContract.connect(user1).deleteOperatorDAO(await user1.getAddress()))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
         });
 
@@ -1843,7 +1843,7 @@ describe("SimpleEigenContract", () => {
                 pubG1: mockG1Point,
                 pubG2: mockG2Point
             }
-            await expect(simpleEigenContract.connect(user1).updateOperatorDAO(op))
+            await expect(operatorRegistryContract.connect(user1).updateOperatorDAO(op))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
         });
     });
@@ -1852,28 +1852,28 @@ describe("SimpleEigenContract", () => {
         it("should only allow setter to set validity periods", async () => {
             const newAPKPeriod = 2;
 
-            await expect(simpleEigenContract.connect(user1).setValidityPeriods(newAPKPeriod))
+            await expect(operatorRegistryContract.connect(user1).setValidityPeriods(newAPKPeriod))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
 
-            await expect(simpleEigenContract.connect(staked_setter).setValidityPeriods(newAPKPeriod))
+            await expect(operatorRegistryContract.connect(staked_setter).setValidityPeriods(newAPKPeriod))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
 
-            await simpleEigenContract.connect(validity_setter).setValidityPeriods(newAPKPeriod);
-            const apkValidityPeriod = await simpleEigenContract.apkValidityPeriod();
+            await operatorRegistryContract.connect(validity_setter).setValidityPeriods(newAPKPeriod);
+            const apkValidityPeriod = await operatorRegistryContract.apkValidityPeriod();
             expect(apkValidityPeriod).to.be.equal(newAPKPeriod);
         });
 
         it("should only allow setter to set min staked limit", async () => {
             const newMinStakedRatio = 1000000;
 
-            await expect(simpleEigenContract.connect(user1).setMinStakedRatio(newMinStakedRatio))
+            await expect(operatorRegistryContract.connect(user1).setMinStakedRatio(newMinStakedRatio))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
 
-            await expect(simpleEigenContract.connect(validity_setter).setMinStakedRatio(newMinStakedRatio))
+            await expect(operatorRegistryContract.connect(validity_setter).setMinStakedRatio(newMinStakedRatio))
                 .to.be.revertedWith(/AccessControl: account .* is missing role .*/);
 
-            await simpleEigenContract.connect(staked_setter).setMinStakedRatio(newMinStakedRatio);
-            const minStakedLimit = await simpleEigenContract.minStakedRatio();
+            await operatorRegistryContract.connect(staked_setter).setMinStakedRatio(newMinStakedRatio);
+            const minStakedLimit = await operatorRegistryContract.minStakedRatio();
             expect(minStakedLimit).to.be.equal(newMinStakedRatio);
         });
     });

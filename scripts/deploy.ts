@@ -24,8 +24,8 @@ async function main() {
 
     console.log(`Admin address: ${adminAddress}`);
 
-    const SimpleEigenContract = await ethers.getContractFactory("SimpleEigenContract");
-    const contract = await upgrades.deployProxy(SimpleEigenContract, [adminAddress], {
+    const OperatorRegistryContract = await ethers.getContractFactory("OperatorRegistry");
+    const contract = await upgrades.deployProxy(OperatorRegistryContract, [adminAddress], {
         initializer: "initialize",
     });
     await contract.waitForDeployment();

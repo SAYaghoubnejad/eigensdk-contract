@@ -7,7 +7,7 @@ import {BN254} from "../libraries/BN254.sol";
 /// @title ISimpleEigenContract
 /// @notice Interface for the SimpleEigenContract
 /// @dev Defines the external functions and events for managing operators with BLS signatures
-interface ISimpleEigenContract {
+interface IOperatorRegistry{
     /// @notice Enum representing different actions for operators
     enum Action {
         Add,
