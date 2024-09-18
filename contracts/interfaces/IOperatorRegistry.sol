@@ -119,22 +119,6 @@ interface IOperatorRegistry{
         SynchronizationNonce calldata nonce_
     ) external;
 
-    /// @notice Update an existing operator or add operator if it does not exist using Signature
-    /// @param op_ The Operator to be upsert
-    /// @param signature_ Signature to upsert an operator
-    /// @param nonce_ The nonce used for upserting operator
-    function upsertOperatorSig(
-        Operator calldata op_,
-        Signature memory signature_,
-        SynchronizationNonce calldata nonce_
-    ) external;
-
-    /// @notice Sets the aggregated history for a G1 point
-    /// @param point_ The BN254.G1Point to set the history for
-    /// @param value_ The uint256 value to associate with the point
-    /// @param totalStakedAmount_ The total staked amount at the time of setting the history
-    function setAggregatedG1History(BN254.G1Point memory point_, uint256 value_, uint256 totalStakedAmount_) external;
-
     /// @notice Retrieves the aggregated history for a G1 point
     /// @param point_ The BN254.G1Point to get the history for
     /// @return The uint256 value associated with the point and the total staked amount

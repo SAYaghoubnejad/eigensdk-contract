@@ -44,6 +44,10 @@ const config: HardhatUserConfig = {
             url: "https://rpc.blast.io",
             accounts: [process.env.NEW_MAIN_DEPLOYER!],
         },
+        celo: {
+            url: "https://rpc.ankr.com/celo",
+            accounts: [process.env.NEW_MAIN_DEPLOYER!],
+        },
         fantom: {
             url: "https://rpc.ftm.tools",
             accounts: [process.env.NEW_MAIN_DEPLOYER!],
@@ -84,12 +88,20 @@ const config: HardhatUserConfig = {
             url: `https://zkevm-rpc.com`,
             accounts: [process.env.NEW_MAIN_DEPLOYER!],
         },
-        op: {
-            url: `https://optimism.llamarpc.com	`,
+        optimisticEthereum: {
+            url: `https://endpoints.omniatech.io/v1/op/mainnet/public`,
             accounts: [process.env.NEW_MAIN_DEPLOYER!],
         },
         base: {
-            url: `https://base.llamarpc.com`,
+            url: `https://base.meowrpc.com`,
+            accounts: [process.env.NEW_MAIN_DEPLOYER!],
+        },
+        frax: {
+            url: `https://rpc.frax.com`,
+            accounts: [process.env.NEW_MAIN_DEPLOYER!],
+        },
+        metal: {
+            url: `https://rpc.metall2.com`,
             accounts: [process.env.NEW_MAIN_DEPLOYER!],
         },
     },
@@ -104,6 +116,11 @@ const config: HardhatUserConfig = {
         apiKey: {
             polygon: process.env.POLYGON_API_KEY!,
             blast: process.env.BLAST_API_KEY!,
+            base: process.env.BASE_API_KEY!,
+            optimisticEthereum: process.env.OPTIMIZEM_API_KEY!,
+            celo: process.env.CELO_API_KEY!,
+            frax: process.env.FRAX_API_KEY!,
+            metal: process.env.MEAL_API_KEY!,
             sepolia: process.env.ETHERSCAN_API_KEY!
         },
         customChains: [
@@ -123,6 +140,30 @@ const config: HardhatUserConfig = {
                     browserURL: "https://sepolia.etherscan.io",
                 },
             },
+            {
+                network: "celo",
+                chainId: 42220,
+                urls: {
+                    apiURL: "https://api.celoscan.io/api",
+                    browserURL: "https://celoscan.io/",
+                },
+            },
+            {
+                network: "frax",
+                chainId: 252,
+                urls: {
+                    apiURL: "https://api.fraxscan.com/api",
+                    browserURL: "https://fraxscan.com/",
+                },
+            },
+            {
+                network: "metal",
+                chainId: 1750,
+                urls: {
+                    apiURL: "https://explorer.metall2.com/api",
+                    browserURL: "https://explorer.metall2.com"
+                }
+            }
         ],
     },
 };
